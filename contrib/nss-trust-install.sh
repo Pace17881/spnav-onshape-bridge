@@ -75,7 +75,11 @@ found_ff=0
 for ini in "$HOME"/.mozilla/firefox/profiles.ini "$HOME"/.var/app/org.mozilla.firefox/.mozilla/firefox/profiles.ini; do
 	[ -f "$ini" ] || continue
 	base=$(dirname "$ini")
-	for profdir in $(awk -F= '/^Path=/{print $2}' "$ini"); do
+	# Reads via a heredoc, not a pipe: `awk | while read` would run the loop
+	# in a subshell in POSIX sh, losing the found_ff=1 assignment below once
+	# the loop ends.
+	while IFS= read -r profdir; do
+		[ -n "$profdir" ] || continue
 		case "$profdir" in
 			/*) full="$profdir" ;;
 			*)  full="$base/$profdir" ;;
@@ -84,7 +88,9 @@ for ini in "$HOME"/.mozilla/firefox/profiles.ini "$HOME"/.var/app/org.mozilla.fi
 			found_ff=1
 			import_into "$full" "Firefox profile $(basename "$full")"
 		fi
-	done
+	done <<EOF
+$(awk -F= '/^Path=/{print $2}' "$ini")
+EOF
 done
 [ "$found_ff" = 0 ] && echo "  (no Firefox profiles found)"
 

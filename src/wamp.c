@@ -1,14 +1,24 @@
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
+#include <openssl/rand.h>
 #include "wamp.h"
 
+/* These IDs are just RPC call-correlation tags on a loopback connection
+ * already gated by the Origin check (src/origins.c) - not secrets, and
+ * predictability here isn't a real security issue. Uses RAND_bytes anyway,
+ * rather than rand()/srand(), because it's already linked in for
+ * src/tls.c's certificate generation and removes any seeding question. */
 void wamp_gen_id(char *out, int len)
 {
 	static const char alphabet[] = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
+	unsigned char rnd[32];
 	int i;
+
+	if(len > (int)sizeof rnd) len = (int)sizeof rnd;
+	RAND_bytes(rnd, len);
 	for(i=0; i<len; i++) {
-		out[i] = alphabet[rand() % (sizeof alphabet - 1)];
+		out[i] = alphabet[rnd[i] % (sizeof alphabet - 1)];
 	}
 	out[len] = 0;
 }

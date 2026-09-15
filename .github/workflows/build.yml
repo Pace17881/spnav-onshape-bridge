@@ -14,7 +14,8 @@ jobs:
       - name: Install dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y libspnav-dev libssl-dev libx11-dev python3
+          sudo apt-get install -y libspnav-dev libssl-dev libx11-dev python3 \
+            clang-tidy cppcheck shellcheck
 
       - name: Configure
         run: ./configure
@@ -34,3 +35,12 @@ jobs:
           # spacenavd isn't running on the CI runner; --doctor should report
           # that clearly and exit nonzero rather than crash.
           ./spnav-onshape-bridge --doctor || true
+
+      - name: Static analysis (clang-tidy + cppcheck)
+        run: make lint
+
+      - name: Shell script analysis
+        run: make shellcheck
+
+      - name: Sanitizer build (AddressSanitizer + UndefinedBehaviorSanitizer)
+        run: make test-sanitize

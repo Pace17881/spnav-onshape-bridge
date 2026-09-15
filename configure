@@ -8,9 +8,9 @@ PREFIX=/usr/local
 OPT=yes
 DBG=yes
 HARDEN=yes
-VER=`git describe --tags 2>/dev/null`
+VER=$(git describe --tags 2>/dev/null)
 if [ -z "$VER" ]; then
-	VER=`git rev-parse --short HEAD 2>/dev/null`
+	VER=$(git rev-parse --short HEAD 2>/dev/null)
 	if [ -z "$VER" ]; then
 		VER='<unknown version>'
 	fi
@@ -18,12 +18,12 @@ fi
 
 echo "configuring spnav-onshape-bridge - $VER"
 
-srcdir="`dirname "$0"`"
+srcdir="$(dirname "$0")"
 
 for arg; do
 	case "$arg" in
 	--prefix=*)
-		value=`echo $arg | sed 's/--prefix=//'`
+		value=$(echo "$arg" | sed 's/--prefix=//')
 		PREFIX=${value:-$PREFIX}
 		;;
 	--enable-opt)
@@ -88,8 +88,8 @@ if [ "$HARDEN" = yes ]; then
 fi
 
 if pkg-config --exists openssl 2>/dev/null; then
-	echo "ssl_cflags = `pkg-config --cflags openssl`" >> Makefile
-	echo "ssl_libs = `pkg-config --libs openssl`" >> Makefile
+	echo "ssl_cflags = $(pkg-config --cflags openssl)" >> Makefile
+	echo "ssl_libs = $(pkg-config --libs openssl)" >> Makefile
 else
 	echo 'ssl_libs = -lssl -lcrypto' >> Makefile
 fi

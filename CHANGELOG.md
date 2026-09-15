@@ -3,6 +3,39 @@
 All notable changes to this project are documented here.
 Format loosely follows [Keep a Changelog](https://keepachangelog.com/).
 
+## [0.1.2] - 2026-09-15
+
+### Added
+- `make lint` (clang-tidy + cppcheck), `make shellcheck` (configure,
+  install.sh, contrib/*.sh, debian/*.postinst), and `make test-sanitize`
+  (unit + integration tests rebuilt with AddressSanitizer and
+  UndefinedBehaviorSanitizer). All three are now also run in CI on every
+  push/PR (`.github/workflows/build.yml`).
+- `.clang-tidy`: bugprone-*, clang-analyzer-*, cert-*, performance-*,
+  portability-* enabled, with a small number of documented exclusions for
+  false positives and checks that don't fit this project's style.
+
+### Fixed
+- `MSG_BUF_SIZE` was computed as an `int` multiplication (`1024*1024`)
+  before being used as a `size_t`; harmless at the current value but a latent
+  overflow trap for anyone raising it. Now computed directly as `size_t`,
+  with the two `fprintf` format strings that used it corrected from `%d` to
+  `%zu`.
+- `--port` was parsed with `atoi`, which silently accepts garbage and can't
+  distinguish "0" from "not a number". Switched to `strtol` with the same
+  range/error checking already used for `--sensitivity`.
+- `wamp_gen_id()` used `rand()` seeded from `time()^getpid()` for session/
+  call IDs - predictable, and irrelevant entropy for anything
+  security-sensitive reusing that function later. Switched to OpenSSL
+  `RAND_bytes()`; removed the now-unused `srand()` call in `main.c`.
+- `controller_create()` didn't check `calloc()`'s return value; a failed
+  allocation would crash on the first field write instead of failing
+  cleanly. Now returns NULL on failure, and the one caller
+  (`handle_ws_upgrade()` in `main.c`) closes the connection gracefully
+  instead of dereferencing NULL.
+- All of the above were found by clang-tidy/cppcheck, not by manual review
+  or a reported bug - none had been observed causing a real failure.
+
 ## [0.1.1] - 2026-09-15
 
 ### Fixed

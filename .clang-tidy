@@ -1,0 +1,47 @@
+---
+# Focused on bug-finding and security-relevant checks, not style - this
+# project has its own established K&R/tabs style (see CONTRIBUTING.md) that
+# would conflict with readability-*/google-*/llvm-* naming and formatting
+# checks, so those are deliberately not enabled.
+#
+# Disabled individual checks, and why:
+#  - bugprone-easily-swappable-parameters: mostly fires on this project's own
+#    consistent (subject, issuer, cn, is_ca, ...) constructor-style
+#    functions; not a real bug pattern here.
+#  - bugprone-narrowing-conversions: fires on every `int_field * 0.02f`
+#    (spacenavd axis values are ints, sensitivity math is intentionally
+#    float) - correct, intended code, not a bug.
+#  - clang-analyzer-optin.performance.Padding: struct client's few bytes of
+#    padding are irrelevant next to its megabyte-sized message buffers.
+#  - clang-analyzer-security.ArrayBound: false positive on origins.c's
+#    NULL-terminated-array loop (`for(i=0; allowed_origins[i]; i++)`) - the
+#    analyzer doesn't track that the loop condition itself prevents ever
+#    indexing past the NULL sentinel. Verified by manual inspection.
+#    A `// NOLINTNEXTLINE` comment on that line does not suppress this
+#    particular analyzer diagnostic reliably, hence disabling it here
+#    instead - it's a single-purpose, 8-line file, so the loss of this
+#    check elsewhere is negligible.
+#  - cert-err33-c: flags every snprintf/fprintf/fflush return value as
+#    "must be checked". For the truncation-tolerant, fixed-size-buffer
+#    snprintf calls used throughout this project for paths/log messages, a
+#    truncated string is a cosmetic issue, not a security one - checking
+#    every call site would be many dozens of `(void)` casts for no real
+#    safety gain. (ws_compute_accept()'s one snprintf where truncation could
+#    matter already has its own explicit length check, unrelated to this
+#    lint rule.)
+Checks: >
+  -*,
+  bugprone-*,
+  -bugprone-easily-swappable-parameters,
+  -bugprone-narrowing-conversions,
+  clang-analyzer-*,
+  -clang-analyzer-optin.performance.Padding,
+  -clang-analyzer-security.ArrayBound,
+  cert-*,
+  -cert-err33-c,
+  -cert-err34-c,
+  performance-*,
+  portability-*
+WarningsAsErrors: ''
+HeaderFilterRegex: 'src/.*\.h'
+FormatStyle: none

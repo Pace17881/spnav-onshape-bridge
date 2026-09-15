@@ -1,4 +1,5 @@
-src = $(sort $(wildcard src/*.c)) third_party/cJSON.c
+own_src = $(sort $(wildcard src/*.c))
+src = $(own_src) third_party/cJSON.c
 hdr = $(wildcard src/*.h)
 obj = $(src:.c=.o)
 bin = spnav-onshape-bridge
@@ -56,3 +57,45 @@ tests/test_daemon: tests/stub_spnav.c $(filter-out src/spnav_bridge.o,$(obj))
 .PHONY: test-integration
 test-integration: tests/test_daemon
 	python3 tests/test_transport.py
+
+# Rebuilds everything with AddressSanitizer + UndefinedBehaviorSanitizer and
+# runs the full test suite under them, then cleans up so a normal `make`
+# afterwards isn't left with mismatched sanitizer-instrumented objects.
+# Most valuable for src/ws.c, src/http.c, src/wamp.c, src/controller.c -
+# the code paths that parse untrusted network input.
+.PHONY: test-sanitize
+test-sanitize:
+	$(MAKE) clean
+	$(MAKE) test test-integration \
+		user_cflags="-fsanitize=address,undefined -fno-omit-frame-pointer -fno-sanitize-recover=all -g" \
+		user_ldflags="-fsanitize=address,undefined"
+	$(MAKE) clean
+
+# clang-tidy and cppcheck are two independent static analyzers; run both
+# rather than picking one, since they catch different things. Scoped to
+# own_src (src/*.c), not third_party/cJSON.c - that's vendored, pinned
+# upstream code (see third_party/LICENSE.cJSON) we don't modify, so linting
+# it would just be noise. Each prints its own "not installed" message rather
+# than failing silently if missing - matches the --doctor philosophy of
+# telling you exactly what to fix.
+.PHONY: lint
+lint:
+	@if command -v clang-tidy >/dev/null 2>&1; then \
+		clang-tidy $(own_src) -- $(CFLAGS) || exit 1; \
+	else \
+		echo "clang-tidy not found (Arch: pacman -S clang | Debian/Ubuntu: apt install clang-tidy) - skipping" >&2; \
+	fi
+	@if command -v cppcheck >/dev/null 2>&1; then \
+		cppcheck --enable=warning,performance,portability --error-exitcode=1 \
+			--suppress=missingIncludeSystem $(incpaths) src/ || exit 1; \
+	else \
+		echo "cppcheck not found (Arch: pacman -S cppcheck | Debian/Ubuntu: apt install cppcheck) - skipping" >&2; \
+	fi
+
+.PHONY: shellcheck
+shellcheck:
+	@if command -v shellcheck >/dev/null 2>&1; then \
+		shellcheck configure install.sh contrib/*.sh debian/*.postinst || exit 1; \
+	else \
+		echo "shellcheck not found (Arch: pacman -S shellcheck | Debian/Ubuntu: apt install shellcheck) - skipping" >&2; \
+	fi

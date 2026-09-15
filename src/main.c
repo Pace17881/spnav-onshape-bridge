@@ -33,7 +33,7 @@
 /* Onshape sends command icon images (~374 KB observed), as either a single
  * frame or a fragmented message. Bound both forms to the same 1 MiB limit;
  * the receive buffer also needs room for the largest masked frame header. */
-#define MSG_BUF_SIZE (1024 * 1024)
+#define MSG_BUF_SIZE ((size_t)1024 * 1024)
 #define INPUT_BUF_SIZE (MSG_BUF_SIZE + 14)
 
 #define IO_TIMEOUT 10
@@ -409,10 +409,16 @@ static void handle_ws_upgrade(struct client *cl, const struct http_request *req)
 		queue_output(cl, hdr, (size_t)n);
 	}
 
+	cl->ctrl = controller_create(client_send, cl);
+	if(!cl->ctrl) {
+		fprintf(stderr, "out of memory creating controller for %s, closing\n", cl->peer);
+		cl->phase = PHASE_CLOSING;
+		return;
+	}
+	controller_set_sensitivity(cl->ctrl, g_sensitivity);
+
 	fprintf(stderr, "client %s upgraded to WebSocket (origin: %s)\n", cl->peer, req->origin);
 	cl->phase = PHASE_WS;
-	cl->ctrl = controller_create(client_send, cl);
-	controller_set_sensitivity(cl->ctrl, g_sensitivity);
 }
 
 /* Onshape's own client fetches /3dconnexion/nlproxy via plain XHR/fetch, not
@@ -517,7 +523,7 @@ static void process_client_buffer(struct client *cl)
 				}
 				if(cl->msg_opcode == WS_OP_TEXT) {
 					if(cl->msglen + payload_len > MSG_BUF_SIZE) {
-						fprintf(stderr, "message from %s exceeds %d byte limit, closing\n",
+						fprintf(stderr, "message from %s exceeds %zu byte limit, closing\n",
 								cl->peer, MSG_BUF_SIZE);
 						cl->phase = PHASE_CLOSING;
 						return;
@@ -594,7 +600,16 @@ int main(int argc, char **argv)
 		if(strcmp(argv[i], "--host") == 0 && i + 1 < argc) {
 			host = argv[++i];
 		} else if(strcmp(argv[i], "--port") == 0 && i + 1 < argc) {
-			port = atoi(argv[++i]);
+			char *end;
+			const char *value = argv[++i];
+			long p;
+			errno = 0;
+			p = strtol(value, &end, 10);
+			if(errno || end == value || *end || p < 1 || p > 65535) {
+				fprintf(stderr, "--port must be a number from 1 to 65535\n");
+				return 1;
+			}
+			port = (int)p;
 		} else if(strcmp(argv[i], "--sensitivity") == 0 && i + 1 < argc) {
 			char *end;
 			const char *value = argv[++i];
@@ -625,7 +640,6 @@ int main(int argc, char **argv)
 		return run_doctor(state_dir);
 	}
 
-	srand((unsigned)(time(NULL) ^ getpid()));
 	signal(SIGINT, on_signal);
 	signal(SIGTERM, on_signal);
 	signal(SIGPIPE, SIG_IGN);
@@ -804,7 +818,7 @@ int main(int argc, char **argv)
 					/* Bound work per client, while draining already decrypted TLS records. */
 					for(int reads = 0; reads < 16; reads++) {
 						if(cl->inlen == sizeof cl->inbuf) {
-							fprintf(stderr, "input frame from %s exceeds %d byte message limit, closing\n", cl->peer, MSG_BUF_SIZE);
+							fprintf(stderr, "input frame from %s exceeds %zu byte message limit, closing\n", cl->peer, MSG_BUF_SIZE);
 							cl->failed = 1;
 							break;
 						}

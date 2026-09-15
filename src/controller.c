@@ -299,6 +299,10 @@ struct controller *controller_create(controller_send_fn send, void *send_user)
 	char session_id[17];
 	char *welcome;
 
+	if(!c) {
+		return NULL;
+	}
+
 	c->send = send;
 	c->send_user = send_user;
 	c->hs = HS_WAIT_MOUSE;

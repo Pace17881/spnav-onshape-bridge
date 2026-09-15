@@ -34,6 +34,9 @@ the security-relevant parts (see [SECURITY.md](SECURITY.md)).
 make
 make test              # unit tests: matrix math, controller state machine, WS framing
 make test-integration   # requires python3: TLS/HTTP handshake against a simulated device
+make test-sanitize      # rebuilds and re-runs the above under ASan+UBSan
+make lint                # requires clang-tidy and cppcheck
+make shellcheck          # requires shellcheck; covers configure and contrib/*.sh
 ```
 
 A change that touches `src/controller.c`, `src/wamp.c`, `src/ws.c`, or
@@ -42,8 +45,14 @@ existing tests for the pattern (`tests/test_controller.c` scripts a fake
 Onshape client against the real controller state machine, `tests/test_ws.c`
 exercises RFC6455 framing edge cases directly).
 
-CI (`.github/workflows/build.yml`) builds and runs `make test` on every push
-and PR. Please make sure it passes before requesting review.
+Any new C code should pass `make lint` and `make test-sanitize` cleanly -
+`.clang-tidy` documents the few checks that are deliberately disabled and
+why; don't silence a real finding by adding to that list without discussing
+it first. Shell scripts (`configure`, `install.sh`, `contrib/*.sh`,
+`debian/*.postinst`) should pass `make shellcheck`.
+
+CI (`.github/workflows/build.yml`) builds, tests, lints and sanitizer-builds
+on every push and PR. Please make sure it passes before requesting review.
 
 ## Security-sensitive changes
 
