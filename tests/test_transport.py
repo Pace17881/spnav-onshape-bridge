@@ -31,7 +31,7 @@ with tempfile.TemporaryDirectory(prefix="spnav-test-") as state:
                         raise
                     time.sleep(0.02)
             ctx = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
-            ctx.load_verify_locations(state + "/server.crt.pem")
+            ctx.load_verify_locations(state + "/ca.crt.pem")
 
             def connect():
                 return ctx.wrap_socket(socket.create_connection(("127.0.0.1", port), timeout=2),

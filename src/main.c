@@ -214,15 +214,15 @@ static int doctor_check_cert(const char *state_dir)
 	 * command is normally run by hand, so check the systemd location too
 	 * rather than only whichever one applies to *this* invocation. */
 	if(xdg_state && *xdg_state) {
-		snprintf(crt, sizeof crt, "%s/spnav-onshape-bridge/server.crt.pem", xdg_state);
+		snprintf(crt, sizeof crt, "%s/spnav-onshape-bridge/ca.crt.pem", xdg_state);
 	} else if(home && *home) {
-		snprintf(crt, sizeof crt, "%s/.local/state/spnav-onshape-bridge/server.crt.pem", home);
+		snprintf(crt, sizeof crt, "%s/.local/state/spnav-onshape-bridge/ca.crt.pem", home);
 	} else {
 		crt[0] = 0;
 	}
 	printf("[..] certificate file ...");
 	if(crt[0] == 0 || access(crt, R_OK) != 0) {
-		snprintf(crt, sizeof crt, "%s/server.crt.pem", state_dir);
+		snprintf(crt, sizeof crt, "%s/ca.crt.pem", state_dir);
 		if(access(crt, R_OK) != 0) {
 			printf(" MISSING (%s)\n", crt);
 			printf("     -> run spnav-onshape-bridge once (without --doctor) to generate it\n");

@@ -29,7 +29,7 @@ problems this project fixes:
 | Problem in spacenav-ws | Fix here |
 |---|---|
 | No `Origin` check on the WebSocket upgrade - any website open in the same browser can connect to the well-known local address and read raw 3D-mouse motion or spoof camera-control RPCs | Every upgrade request is checked against a server-side allow-list (`src/origins.c`) before the WAMP handshake proceeds; anything else is rejected with `403` |
-| The TLS private key is committed to spacenav-ws's public git repo and reused by every installation, so the usual "add a security exception" click provides no real guarantee | A self-signed leaf certificate is generated fresh per installation (`src/tls.c`), and can be properly imported into your browsers' trust stores (`contrib/nss-trust-install.sh`) instead of clicking through a warning |
+| The TLS private key is committed to spacenav-ws's public git repo and reused by every installation, so the usual "add a security exception" click provides no real guarantee | A local CA + leaf certificate are generated fresh per installation (`src/tls.c`), and can be properly imported into your browsers' trust stores (`contrib/nss-trust-install.sh`) instead of clicking through a warning |
 | `uvx ...@latest` re-fetches unpinned code from PyPI on every start, and the Tampermonkey script is live-loaded from Greasyfork, where anyone with edit access can change it | Compiled, versioned binary; no runtime code fetching. The one-line browser patch is vendored in this repo (`browser-extension/`) |
 
 The protocol logic itself (the WAMP-over-WebSocket handshake and the
@@ -44,7 +44,7 @@ spacenavd  --(libspnav, AF_UNIX)-->  spnav-onshape-bridge  --(wss://127.51.68.12
 ```
 
 - `src/spnav_bridge.*` - thin libspnav wrapper for reading motion/button events.
-- `src/tls.*` - per-install self-signed certificate generation and the server `SSL_CTX`.
+- `src/tls.*` - per-install CA + leaf certificate generation and the server `SSL_CTX`.
 - `src/http.*` - minimal HTTP/1.1 parsing for the `/3dconnexion/nlproxy` discovery endpoint and the WebSocket upgrade request.
 - `src/ws.*` - RFC6455 handshake and frame codec.
 - `src/origins.*` - the `Origin` allow-list check.
@@ -85,16 +85,16 @@ prints exactly what's left to do by hand for the browser side. Run
 
 1. Make sure `spacenavd` is running and sees your device (`spnavcfg`, or
    check its log).
-2. Run `spnav-onshape-bridge` once by hand. On first run it generates a self-signed
-   leaf certificate under `$XDG_DATA_HOME/spnav-onshape-bridge` (or
-   `~/.local/share/spnav-onshape-bridge`) and prints their path.
+2. Run `spnav-onshape-bridge` once by hand. On first run it generates a local
+   CA and a leaf certificate under `$XDG_DATA_HOME/spnav-onshape-bridge` (or
+   `~/.local/share/spnav-onshape-bridge`) and prints the CA's path.
 3. `contrib/nss-trust-install.sh` imports the certificate into NSS stores
-   (requires your distro's `certutil` tool). **Firefox 155 did not accept
-   this peer-trust import alone in our test.** Firefox additionally needs a
-   certificate exception for `https://127.51.68.120:8181`, matching the
-   certificate used by the running daemon. The successful Firefox test used
-   a host/port and certificate-fingerprint exception in an isolated profile;
-   see [BROWSER_TEST.md](BROWSER_TEST.md). Restart browsers after trust changes.
+   (requires your distro's `certutil` tool). This imports the daemon's local
+   CA with real CA trust and needs no further manual certificate steps in
+   either browser - verified with a real headless Firefox test; see
+   [BROWSER_TEST.md](BROWSER_TEST.md) for why an earlier version of this
+   project needed a manual per-site exception in Firefox and no longer does.
+   Restart browsers after trust changes.
 4. Install it as a per-user systemd service so it starts with your session:
    ```sh
    mkdir -p ~/.local/bin && cp spnav-onshape-bridge ~/.local/bin/

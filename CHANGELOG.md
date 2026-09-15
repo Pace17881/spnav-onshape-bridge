@@ -3,6 +3,39 @@
 All notable changes to this project are documented here.
 Format loosely follows [Keep a Changelog](https://keepachangelog.com/).
 
+## [0.1.1] - 2026-09-15
+
+### Fixed
+- Restored the local CA + leaf certificate model (reverted the 0.1.0 switch
+  to a single directly-trusted self-signed leaf). That switch was made on
+  an incorrect theory during the Chromium debugging in POSTMORTEM.md, and
+  turned out to make Firefox trust setup *worse*: verified empirically with
+  headless Firefox that a peer-trusted self-signed leaf shows the
+  certificate warning interstitial, while a CA-trusted leaf loads with no
+  interaction in both Firefox and Chromium. `contrib/nss-trust-install.sh`
+  now imports with real CA trust (`certutil -t C,,`) again. See the
+  BROWSER_TEST.md addendum for the full account.
+- Fixed the shipped systemd unit's `ExecStart` (`%h/.local/bin/...`), which
+  only worked for the manual `install.sh` install location and not the
+  actual `/usr/bin` location a distro package installs to. Now a bare
+  command name resolved via an explicit `PATH` covering both.
+- `--doctor` only checked the manual-install certificate location
+  (`XDG_DATA_HOME`), so it reported the certificate missing even when the
+  systemd `--user` service (which uses `XDG_STATE_HOME` via
+  `StateDirectory=`) had already generated one correctly. Now checks both,
+  matching `nss-trust-install.sh`.
+
+Both packaging bugs above were only caught by installing the actual built
+package on a real machine, not by the container-based CI validation added
+in 0.1.0 - the containers never exercised systemd or non-root browser
+profiles.
+
+### Versioning note
+Starting with this release, tags are immutable once created - no more
+force-moving `v0.1.0` to fold in fixes, which is exactly what happened
+several times while stabilizing that release. Each further change gets a
+new tag following semantic versioning.
+
 ## [0.1.0] - 2026-09-15
 
 Initial working release.

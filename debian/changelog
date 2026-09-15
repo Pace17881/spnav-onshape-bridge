@@ -1,3 +1,14 @@
+spnav-onshape-bridge (0.1.1-1) unstable; urgency=medium
+
+  * Restore local CA + leaf certificate model; fixes Firefox needing a
+    manual per-site certificate exception (see BROWSER_TEST.md).
+  * Fix systemd unit ExecStart to work with the package's /usr/bin install
+    path, not just the manual install.sh location.
+  * --doctor now also checks the systemd StateDirectory certificate
+    location.
+
+ -- Sebastian Polster <polsterseb@protonmail.com>  Tue, 15 Sep 2026 15:00:00 +0000
+
 spnav-onshape-bridge (0.1.0-1) unstable; urgency=medium
 
   * Initial packaging.

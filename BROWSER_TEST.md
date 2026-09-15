@@ -118,3 +118,40 @@ Auf Nutzerwunsch wurde anschließend alles beendet: Testbrowser, Daemon,
 temporäres Profil, Zertifikat und Diagnoseskripte. Es besteht weiterhin keine
 dauerhafte Installation. Weitere individuelle Abstimmung ist über
 `--sensitivity` möglich.
+
+
+## Nachtrag 2026-09-15: Ursache des Firefox-Zertifikatsproblems gefunden
+
+Der oben dokumentierte Bedarf einer manuellen Host+Fingerabdruck-Ausnahme in
+Firefox hatte eine konkrete, vermeidbare Ursache: Zwischenzeitlich war das
+Projekt (während der Fehlersuche zum ursprünglichen Chromium-Verbindungsabbruch,
+siehe POSTMORTEM.md) von einer lokalen CA, die ein Leaf-Zertifikat signiert,
+auf ein einzelnes, direkt selbstsigniertes Leaf-Zertifikat umgestellt worden -
+auf der (falschen) Annahme, das CA-Vertrauensmodell hätte den Chromium-Abbruch
+verursacht. Tatsächlich lag jener Bug an einer zu kleinen Nachrichtengrößen-
+Grenze, völlig unabhängig vom Zertifikatsmodell.
+
+Empirisch verifiziert (jeweils mit `firefox --headless --screenshot` gegen
+ein frisches, temporäres Profil):
+
+- Selbstsigniertes Leaf-Zertifikat, importiert mit NSS-Peer-Trust (`certutil
+  -t P,,`): Firefox zeigt die Zertifikatswarnung, keine automatische
+  Akzeptanz.
+- Von einer lokalen CA signiertes Leaf-Zertifikat, CA importiert mit
+  regulärem CA-Trust (`certutil -t C,,`): Firefox lädt die Seite direkt,
+  ohne jede Warnung oder manuelle Interaktion - ebenso in Chromium.
+
+Firefox' Zertifikatsprüfung (mozilla::pkix) unterstützt NSS-Peer-Trust für
+selbstsignierte Zertifikate offenbar nicht zuverlässig auf dieselbe Weise wie
+das klassische NSS-Modell es nahelegt; echte CA-Ketten-Validierung ist der
+zuverlässig unterstützte Weg. `src/tls.c` und `contrib/nss-trust-install.sh`
+wurden entsprechend zurückgebaut (lokale CA + Leaf, Import mit `C,,`). Damit
+entfällt der manuelle Ausnahme-Schritt für Firefox vollständig - bestätigt
+mit demselben Screenshot-Verfahren gegen den echten, laufenden Daemon
+(reales generiertes Zertifikat, realer `nss-trust-install.sh`-Importbefehl):
+`https://127.51.68.120:8181/3dconnexion/nlproxy` lädt direkt, ohne
+Interstitial.
+
+Der reine Vertrauensmodell-Wechsel (CA vs. Peer) hatte also nie etwas mit dem
+Chromium-1006-Bug zu tun, wohl aber sehr direkt mit der Firefox-Erfahrung -
+zwei unabhängige Fragen, die während der Fehlersuche vermischt wurden.
