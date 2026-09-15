@@ -3,6 +3,23 @@
 All notable changes to this project are documented here.
 Format loosely follows [Keep a Changelog](https://keepachangelog.com/).
 
+## [0.1.12] - 2026-09-15
+
+### Fixed
+- `.github/workflows/packaging.yml`'s `arch-package` job, third fix in this
+  chain: 0.1.11 got past the missing-`.git` problem, but then failed with
+  `fatal: invalid reference: v0.1.11` - `actions/checkout@v4`'s default
+  shallow clone doesn't fetch tags at all, but the PKGBUILD's
+  `source=` still pinned `#tag=v${pkgver}` even after the URL was
+  redirected to `git+file://$GITHUB_WORKSPACE`. Added a second `sed` step
+  stripping the `#tag=...` fragment entirely, so it clones
+  `$GITHUB_WORKSPACE`'s checked-out HEAD instead of a specific (and, in
+  CI, absent) tag. Verified with a full local reproduction matching the
+  real job's shallow/no-tags checkout before pushing this time, rather
+  than after.
+- `debian-package` job's 0.1.10 fix confirmed working (first fully green
+  job in this workflow since publishing).
+
 ## [0.1.11] - 2026-09-15
 
 ### Fixed

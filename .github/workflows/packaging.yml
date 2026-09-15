@@ -64,12 +64,16 @@ jobs:
         run: pacman -Sy --noconfirm --needed libspnav openssl libx11
 
       - name: Point PKGBUILD at this checkout
-        # The real PKGBUILD fetches a tagged release from the project's
-        # repository; in CI we build the commit under test instead, since a
-        # PR branch usually isn't tagged yet.
+        # The real PKGBUILD fetches a specific tagged release from the
+        # project's repository; in CI we build the commit under test
+        # instead, since a PR branch usually isn't tagged yet, and
+        # actions/checkout's default shallow clone doesn't fetch tags at
+        # all - so also drop the #tag=v${pkgver} fragment, cloning
+        # $GITHUB_WORKSPACE's checked-out HEAD instead of a specific tag.
         run: |
           sed -i "s#\$pkgname::git+https://github.com/Pace17881/spnav-onshape-bridge.git#\$pkgname::git+file://${GITHUB_WORKSPACE}#" \
             packaging/arch/PKGBUILD
+          sed -i 's/#tag=[^"]*"/"/' packaging/arch/PKGBUILD
 
       - name: Build package as non-root (makepkg refuses to run as root)
         run: |

@@ -1,6 +1,6 @@
 # Maintainer: Sebastian Polster <polsterseb@protonmail.com>
 pkgname=spnav-onshape-bridge
-pkgver=0.1.11
+pkgver=0.1.12
 pkgrel=1
 pkgdesc="Onshape 3D-mouse bridge for spacenavd (Chromium and Firefox on Linux)"
 arch=('x86_64')
