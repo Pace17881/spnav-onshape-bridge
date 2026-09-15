@@ -1,0 +1,34 @@
+[Unit]
+Description=Onshape 3D-mouse bridge for spacenavd
+Documentation=https://github.com/FreeSpacenav/spacenavd/issues/30
+After=spacenavd.service
+Wants=spacenavd.service
+
+[Service]
+Type=simple
+ExecStart=%h/.local/bin/spnav-onshape-bridge
+Restart=on-failure
+RestartSec=2
+
+# Defense in depth beyond the daemon's own loopback-only bind and Origin
+# allow-list: this process needs no filesystem access outside its own state
+# dir, no new privileges, and no networking beyond the AF_INET loopback
+# socket + the AF_UNIX socket to spacenavd.
+NoNewPrivileges=yes
+PrivateTmp=yes
+ProtectSystem=strict
+ProtectHome=read-only
+StateDirectory=spnav-onshape-bridge
+RestrictAddressFamilies=AF_INET AF_UNIX
+IPAddressAllow=127.0.0.0/8
+IPAddressDeny=any
+MemoryDenyWriteExecute=yes
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectControlGroups=yes
+RestrictNamespaces=yes
+RestrictRealtime=yes
+LockPersonality=yes
+
+[Install]
+WantedBy=default.target

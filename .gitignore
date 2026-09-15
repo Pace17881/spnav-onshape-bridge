@@ -1,0 +1,10 @@
+Makefile
+*.o
+*.d
+spnav-onshape-bridge
+tests/test_mat4
+tests/test_controller
+.cfgtest*
+cfgtest.log
+tests/test_ws
+tests/test_daemon

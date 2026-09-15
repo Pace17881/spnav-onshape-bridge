@@ -1,0 +1,15 @@
+{
+	"manifest_version": 3,
+	"name": "SpaceMouse for Onshape (spnav-onshape-bridge)",
+	"version": "0.1.0",
+	"description": "Makes Onshape think it's running on Windows so it probes for a local 3Dconnexion driver - which spnav-onshape-bridge then provides. Does nothing on any other site.",
+	"content_scripts": [
+		{
+			"matches": ["https://cad.onshape.com/documents/*"],
+			"js": ["content.js"],
+			"run_at": "document_start",
+			"world": "MAIN",
+			"all_frames": true
+		}
+	]
+}

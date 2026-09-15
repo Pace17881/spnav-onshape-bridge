@@ -1,0 +1,58 @@
+src = $(sort $(wildcard src/*.c)) third_party/cJSON.c
+hdr = $(wildcard src/*.h)
+obj = $(src:.c=.o)
+bin = spnav-onshape-bridge
+
+lib_src = $(filter-out src/main.c,$(src))
+lib_obj = $(lib_src:.c=.o)
+
+incpaths = -Isrc -Ithird_party -I/usr/local/include
+libpaths = -L/usr/local/lib
+
+CC ?= gcc
+CFLAGS = -std=c99 -Wall -Wextra -D_GNU_SOURCE $(ssl_cflags) $(opt) $(dbg) $(incpaths) $(user_cflags)
+LDFLAGS = $(libpaths) -lspnav $(ssl_libs) -lm $(user_ldflags)
+
+.PHONY: all
+all: $(bin)
+
+$(bin): $(obj)
+	$(CC) -o $@ $(obj) $(LDFLAGS)
+
+%.o: %.c $(hdr)
+	$(CC) $(CFLAGS) -c $< -o $@
+
+.PHONY: test
+test: tests/test_mat4 tests/test_controller tests/test_ws
+	./tests/test_mat4
+	./tests/test_controller
+	./tests/test_ws
+
+tests/test_mat4: tests/test_mat4.c src/mat4.o
+	$(CC) $(CFLAGS) -o $@ $^ -lm
+
+tests/test_controller: tests/test_controller.c $(lib_obj)
+	$(CC) $(CFLAGS) -o $@ $^ $(LDFLAGS)
+
+.PHONY: clean
+clean:
+	rm -f $(obj) $(bin) tests/test_mat4 tests/test_controller tests/test_ws tests/test_daemon
+
+.PHONY: install
+install: $(bin)
+	install -d $(DESTDIR)$(PREFIX)/bin
+	install -m 755 $(bin) $(DESTDIR)$(PREFIX)/bin/$(bin)
+
+.PHONY: uninstall
+uninstall:
+	rm -f $(DESTDIR)$(PREFIX)/bin/$(bin)
+
+tests/test_ws: tests/test_ws.c src/ws.o
+	$(CC) $(CFLAGS) -o $@ $^ $(ssl_libs)
+
+tests/test_daemon: tests/stub_spnav.c $(filter-out src/spnav_bridge.o,$(obj))
+	$(CC) $(CFLAGS) -o $@ $^ $(ssl_libs) -lm $(user_ldflags)
+
+.PHONY: test-integration
+test-integration: tests/test_daemon
+	python3 tests/test_transport.py
