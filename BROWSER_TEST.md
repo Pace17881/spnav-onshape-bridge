@@ -1,157 +1,161 @@
-# Browser-Test am 2026-09-15
+# Browser test on 2026-09-15
 
-## Ergebnis
+## Result
 
-Der aktuelle Daemon hielt im isolierten Chromium-Test die WebSocket-Verbindung
-35 Sekunden offen: 15 Sekunden ohne Anfragen nach dem WAMP-Handshake, danach
-20 Sekunden mit ungefähr zehn Nachrichten pro Sekunde. Kein WebSocket-Fehler
-und kein unerwartetes Close-Event während dieses Zeitraums.
+The current daemon kept the WebSocket connection open for 35 seconds in an
+isolated Chromium test: 15 seconds with no requests after the WAMP
+handshake, then 20 seconds with roughly ten messages per second. No
+WebSocket error and no unexpected close event during this period.
 
-Am Messzeitpunkt: 200 große Anfragen gesendet, 199 Antworten empfangen,
-WebSocket.readyState = OPEN. Die letzte Anfrage wurde unmittelbar vor der
-Momentaufnahme gesendet; auf ihre Antwort wurde nicht mehr gewartet.
+At the measurement point: 200 large requests sent, 199 responses received,
+WebSocket.readyState = OPEN. The last request was sent immediately before
+the snapshot; its response was no longer waited for.
 
-Der im POSTMORTEM.md beschriebene Abbruch nach etwa einer Sekunde wurde in
-diesem Test nicht reproduziert. Das belegt noch keine Behebung des ursprünglichen
-Onshape-Problems.
+The disconnect after about one second described in POSTMORTEM.md was not
+reproduced in this test. This does not yet prove the original Onshape
+problem is fixed.
 
-## Aufbau und Grenzen
+## Setup and limitations
 
-- Chromium 153.0.8010.36 (Arch Linux), headless, frisches temporäres Profil.
-- Aktueller echter Daemon, direkt gestartet, mit Verbindung zum vorhandenen
-  spacenavd-Socket; kein systemd-Service.
-- Echter TLS-/WebSocket-Stack des Browsers gegen 127.51.68.120:8181.
-- Per DevTools lokal bereitgestellte Testseite unter der Origin
-  https://cad.onshape.com. Die echte Onshape-Anwendung wurde nicht geladen.
-- Synthetischer WAMP-Handshake: create mouse, create controller (Name Onshape),
-  Prefix und Subscribe. Danach Update-Aufrufe mit jeweils 31.000 Zeichen
-  Fülldaten im commands-Feld. Kein echter Onshape-Command-Tree.
-- Keine aufgezeichneten physischen Mausbewegungen und keine visuelle Prüfung
-  der Kamerasteuerung. Firefox und die Referenzimplementierung wurden nicht getestet.
-- Frisches selbstsigniertes Testzertifikat. Nur der Testbrowser akzeptierte
-  dessen öffentlichen Schlüssel über --ignore-certificate-errors-spki-list.
-  Die normale Zertifikatsvalidierung über die Browser-Trust-Stores wurde somit
-  nicht getestet.
+- Chromium 153.0.8010.36 (Arch Linux), headless, fresh temporary profile.
+- Current real daemon, started directly, connected to the existing
+  spacenavd socket; no systemd service.
+- The browser's real TLS/WebSocket stack against 127.51.68.120:8181.
+- A test page served locally via DevTools under the origin
+  https://cad.onshape.com. The real Onshape application was not loaded.
+- Synthetic WAMP handshake: create mouse, create controller (name Onshape),
+  prefix and subscribe. Followed by update calls each with 31,000 characters
+  of filler data in the commands field. Not a real Onshape command tree.
+- No recorded physical mouse movements and no visual check of the camera
+  control. Firefox and the reference implementation were not tested.
+- Fresh self-signed test certificate. Only the test browser accepted its
+  public key via --ignore-certificate-errors-spki-list. Normal certificate
+  validation through the browsers' trust stores was therefore not tested.
 
-## Beobachtung zur Browserberechtigung
+## Observation regarding browser permissions
 
-Ohne passende Berechtigung scheiterte die Verbindung bereits vor dem
-WAMP-Handshake mit:
+Without the right permission, the connection failed before the WAMP
+handshake with:
 
     net::ERR_BLOCKED_BY_LOCAL_NETWORK_ACCESS_CHECKS
 
-Der Browser meldete dabei Close-Code 1006 nach wenigen Millisekunden; der
-Daemon erhielt keinen WebSocket-Upgrade. Das ist ein anderes Fehlerbild als
-der im Postmortem beschriebene Abbruch nach zunächst erfolgreichem Datenverkehr.
+The browser reported close code 1006 after a few milliseconds; the daemon
+never received a WebSocket upgrade. This is a different failure mode than
+the disconnect described in the postmortem, which happened after data was
+already flowing successfully.
 
-Browser.setPermission mit dem Namen local-network-access reichte in diesem
-Test nicht aus. Mit dem Namen loopback-network und setting=granted für die
-Test-Origin funktionierte die Verbindung. Es wurden keine LNA-Prüfungen per
-Browser-Flag abgeschaltet.
+Browser.setPermission with the name local-network-access was not sufficient
+in this test. Using the name loopback-network with setting=granted for the
+test origin made the connection work. No LNA checks were disabled via
+browser flags.
 
-## Systemzustand
+## System state
 
-Keine Installation oder Aktivierung eines systemd-Service. Kein Import in
-bestehende Chromium-/Firefox-Zertifikatsspeicher. Keine Änderung bestehender
-Browserprofile. Testdaemon und Testbrowser nach dem Lauf beendet.
-Temporäre Browserprofile, Zertifikate und Testskript anschließend entfernt.
+No systemd service was installed or activated. No import into existing
+Chromium/Firefox certificate stores. No changes to existing browser
+profiles. Test daemon and test browser were stopped after the run.
+Temporary browser profiles, certificates, and the test script were then
+removed.
 
-Der erste, synthetische Test allein erlaubte noch keine Aussage zur echten
-Onshape-Anwendung; die anschließend durchgeführten Nutzertests folgen unten.
-
-
-## Nachtrag: echte Onshape-Anwendung
-
-Im anschließend vom Nutzer bedienten, sichtbaren Testbrowser trat die
-Reconnect-Schleife wieder auf, mit Abbrüchen etwa 150 ms nach dem Upgrade.
-Die Diagnose zeigte eine zusätzliche `images`-Nachricht von rund 374 KB
-nach dem kleineren Command-Tree. Das überstieg beide bisherigen Puffergrenzen.
-
-Der neue Integrationstest reproduzierte den Verbindungsreset vor dem Fix.
-Nach Anhebung des begrenzten Nachrichtenlimits auf 1 MiB und entsprechender
-Dimensionierung des Frame-Eingangspuffers besteht der Test für einzelne und
-fragmentierte Icon-Nachrichten. Im weiter geöffneten echten Onshape-Dokument
-akzeptierte der ersetzte Testdaemon die Icon-Nachricht; die Reconnect-Schleife
-hörte auf. Der Nutzer bestätigte anschließend den erfolgreichen Test der Kamerasteuerung
-und schloss das Testfenster.
-
-Auch der sichtbare Test ist beendet. Der Testcontroller hat den Daemon
-beendet und das temporäre Browserprofil samt Zertifikat entfernt. Es wurde
-kein Service installiert oder Zertifikat in bestehende Trust-Stores importiert.
-
-Die Diagnose enthielt nach dem Fix noch einen einzelnen 1006-Abbruch nach
-rund 160 Sekunden und anschließenden Reconnect; dessen Ursache wurde nicht
-gesondert ermittelt. Die zuvor dauernde Reconnect-Schleife war beendet.
-Der erfolgreiche Nutzertest ist daher kein Nachweis vollständiger
-Langzeitstabilität.
+The first, synthetic test alone did not yet allow any conclusion about the
+real Onshape application; the user tests that followed are documented
+below.
 
 
-## Firefox 155.0.1: erfolgreicher Nutzertest
+## Addendum: real Onshape application
 
-Der Nutzer bestätigte auch in Firefox eine einwandfreie Funktion.
-Im sichtbaren Test wurden eine einzige Bridge-Verbindung, 4.370 gesendete
-und 4.367 empfangene Nachrichten gezählt, ohne Close-Event während der
-Messung. Die größte gesendete Nachricht hatte 372.216 Zeichen und wurde
-verarbeitet. Browser und Testdaemon sind beendet; temporäres Profil und
-Testzertifikat wurden entfernt.
+In the visible test browser subsequently operated by the user, the
+reconnect loop occurred again, with disconnects about 150 ms after the
+upgrade. Diagnostics showed an additional `images` message of roughly
+374 KB following the smaller command tree. This exceeded both buffer
+limits that existed at the time.
 
-Der anfängliche NSS-Import mit `P,,` allein reichte in diesem Firefox-Profil
-nicht aus: Firefox meldete MOZILLA_PKIX_ERROR_SELF_SIGNED_CERT.
-Für den erfolgreichen Test wurde stattdessen eine Ausnahme für genau
-127.51.68.120:8181 und den SHA-256-Fingerabdruck des Testzertifikats in
-`cert_override.txt` des temporären Profils hinterlegt.
-`acceptInsecureCerts` blieb deaktiviert; die HTTPS-Discovery wurde vor der
-Onshape-Anmeldung erfolgreich geladen. Bestehende Firefox-Profile und
-systemweite Trust-Stores wurden nicht geändert. Der bisher dokumentierte
-NSS-Import allein ist damit kein verifiziert funktionierender Firefox-Setupweg.
+The new integration test reproduced the connection reset before the fix.
+After raising the bounded message limit to 1 MiB and sizing the frame input
+buffer accordingly, the test passes for single and fragmented icon
+messages. In the still-open real Onshape document, the replaced test daemon
+accepted the icon message; the reconnect loop stopped. The user then
+confirmed successful testing of the camera control and closed the test
+window.
 
-Der Nutzer meldete browserübergreifend eine zu hohe Empfindlichkeit.
-Anschließend wurde `--sensitivity` ergänzt und der Standardwert auf 0.35
-gesetzt. Unit-Tests prüfen die Änderung für Rotation, Translation und Zoom.
-Ein weiterer Firefox-Test mit `--sensitivity 0.35` wurde durchgeführt.
-Der Nutzer bewertete die Steuerung als „schon viel besser“ und bestätigte
-damit den neuen Standardwert als geeigneten Ausgangspunkt.
+The visible test has also ended. The test controller stopped the daemon and
+removed the temporary browser profile along with its certificate. No
+service was installed and no certificate was imported into existing trust
+stores.
 
-Bei diesem Test wurden eine Verbindung, 5.267 gesendete und 5.264 empfangene
-Nachrichten aufgezeichnet, ohne Close-Event bis zur abschließenden Messung.
-Auf Nutzerwunsch wurde anschließend alles beendet: Testbrowser, Daemon,
-temporäres Profil, Zertifikat und Diagnoseskripte. Es besteht weiterhin keine
-dauerhafte Installation. Weitere individuelle Abstimmung ist über
-`--sensitivity` möglich.
+The diagnostic log still showed a single 1006 disconnect after about 160
+seconds and a subsequent reconnect after the fix; its cause was not
+separately investigated. The previously continuous reconnect loop had
+stopped. The successful user test is therefore not proof of complete
+long-term stability.
 
 
-## Nachtrag 2026-09-15: Ursache des Firefox-Zertifikatsproblems gefunden
+## Firefox 155.0.1: successful user test
 
-Der oben dokumentierte Bedarf einer manuellen Host+Fingerabdruck-Ausnahme in
-Firefox hatte eine konkrete, vermeidbare Ursache: Zwischenzeitlich war das
-Projekt (während der Fehlersuche zum ursprünglichen Chromium-Verbindungsabbruch,
-siehe POSTMORTEM.md) von einer lokalen CA, die ein Leaf-Zertifikat signiert,
-auf ein einzelnes, direkt selbstsigniertes Leaf-Zertifikat umgestellt worden -
-auf der (falschen) Annahme, das CA-Vertrauensmodell hätte den Chromium-Abbruch
-verursacht. Tatsächlich lag jener Bug an einer zu kleinen Nachrichtengrößen-
-Grenze, völlig unabhängig vom Zertifikatsmodell.
+The user also confirmed flawless operation in Firefox. In the visible test,
+a single bridge connection was counted with 4,370 messages sent and 4,367
+received, with no close event during the measurement. The largest message
+sent was 372,216 characters and was processed successfully. Browser and
+test daemon were stopped; the temporary profile and test certificate were
+removed.
 
-Empirisch verifiziert (jeweils mit `firefox --headless --screenshot` gegen
-ein frisches, temporäres Profil):
+The initial NSS import with `P,,` alone was not sufficient in this Firefox
+profile: Firefox reported MOZILLA_PKIX_ERROR_SELF_SIGNED_CERT. For the
+successful test, an exception for exactly 127.51.68.120:8181 and the
+SHA-256 fingerprint of the test certificate was instead added to
+`cert_override.txt` in the temporary profile. `acceptInsecureCerts`
+remained disabled; the HTTPS discovery loaded successfully before the
+Onshape login. Existing Firefox profiles and system-wide trust stores were
+not changed. The previously documented NSS import alone is therefore not a
+verified working Firefox setup path.
 
-- Selbstsigniertes Leaf-Zertifikat, importiert mit NSS-Peer-Trust (`certutil
-  -t P,,`): Firefox zeigt die Zertifikatswarnung, keine automatische
-  Akzeptanz.
-- Von einer lokalen CA signiertes Leaf-Zertifikat, CA importiert mit
-  regulärem CA-Trust (`certutil -t C,,`): Firefox lädt die Seite direkt,
-  ohne jede Warnung oder manuelle Interaktion - ebenso in Chromium.
+The user reported the sensitivity was too high across both browsers.
+`--sensitivity` was then added and the default set to 0.35. Unit tests
+check the change for rotation, translation, and zoom. A further Firefox
+test was run with `--sensitivity 0.35`. The user rated the control as
+"already much better", confirming the new default as a suitable starting
+point.
 
-Firefox' Zertifikatsprüfung (mozilla::pkix) unterstützt NSS-Peer-Trust für
-selbstsignierte Zertifikate offenbar nicht zuverlässig auf dieselbe Weise wie
-das klassische NSS-Modell es nahelegt; echte CA-Ketten-Validierung ist der
-zuverlässig unterstützte Weg. `src/tls.c` und `contrib/nss-trust-install.sh`
-wurden entsprechend zurückgebaut (lokale CA + Leaf, Import mit `C,,`). Damit
-entfällt der manuelle Ausnahme-Schritt für Firefox vollständig - bestätigt
-mit demselben Screenshot-Verfahren gegen den echten, laufenden Daemon
-(reales generiertes Zertifikat, realer `nss-trust-install.sh`-Importbefehl):
-`https://127.51.68.120:8181/3dconnexion/nlproxy` lädt direkt, ohne
-Interstitial.
+In this test, one connection was recorded with 5,267 messages sent and
+5,264 received, with no close event up to the final measurement. At the
+user's request, everything was then stopped: test browser, daemon,
+temporary profile, certificate, and diagnostic scripts. There is still no
+permanent installation. Further individual tuning is available via
+`--sensitivity`.
 
-Der reine Vertrauensmodell-Wechsel (CA vs. Peer) hatte also nie etwas mit dem
-Chromium-1006-Bug zu tun, wohl aber sehr direkt mit der Firefox-Erfahrung -
-zwei unabhängige Fragen, die während der Fehlersuche vermischt wurden.
+
+## Addendum 2026-09-15: cause of the Firefox certificate problem found
+
+The manual host+fingerprint exception documented above as necessary in
+Firefox had a concrete, avoidable cause: in the meantime, the project (while
+debugging the original Chromium connection drop, see POSTMORTEM.md) had been
+switched from a local CA signing a leaf certificate to a single, directly
+self-signed leaf certificate — on the (incorrect) assumption that the CA
+trust model had caused the Chromium disconnect. In fact, that bug was caused
+by a message-size limit that was too small, completely unrelated to the
+certificate model.
+
+Empirically verified (each with `firefox --headless --screenshot` against a
+fresh, temporary profile):
+
+- Self-signed leaf certificate, imported with NSS peer trust
+  (`certutil -t P,,`): Firefox shows the certificate warning, no automatic
+  acceptance.
+- Leaf certificate signed by a local CA, CA imported with regular CA trust
+  (`certutil -t C,,`): Firefox loads the page directly, with no warning or
+  manual interaction — likewise in Chromium.
+
+Firefox's certificate validation (mozilla::pkix) apparently does not
+reliably support NSS peer trust for self-signed certificates the way the
+classic NSS model suggests it should; real CA-chain validation is the
+reliably supported path. `src/tls.c` and `contrib/nss-trust-install.sh`
+were reverted accordingly (local CA + leaf, import with `C,,`). This
+removes the manual exception step for Firefox entirely — confirmed with the
+same screenshot procedure against the real, running daemon (a real
+generated certificate, the real `nss-trust-install.sh` import command):
+`https://127.51.68.120:8181/3dconnexion/nlproxy` loads directly, with no
+interstitial.
+
+So the pure trust-model switch (CA vs. peer) never had anything to do with
+the Chromium 1006 bug, but very directly with the Firefox experience — two
+independent questions that got conflated during debugging.

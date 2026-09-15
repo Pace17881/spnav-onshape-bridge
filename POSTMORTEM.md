@@ -1,162 +1,183 @@
 # spnav-onshape-bridge — Postmortem (2026-09-14)
 
-## Aktueller Stand (2026-09-15)
+## Current status (2026-09-15)
 
-Die dauernde Reconnect-Schleife ist behoben. Der Nutzer hat die Funktion in
-Chromium und Firefox bestätigt. Die anschließend ergänzte Empfindlichkeit
-`--sensitivity 0.35` wurde in Firefox erneut getestet und als deutlich besser
-bewertet; 0.35 ist jetzt der Standard. Build, Unit- und Integrationstests
-bestehen. Details und verbleibende Einschränkungen stehen in
-[BROWSER_TEST.md](BROWSER_TEST.md), insbesondere zur Firefox-Zertifikatsausnahme
-und zum einzelnen späteren Chromium-Abbruch.
+The persistent reconnect loop is fixed. The user confirmed the feature works
+in Chromium and Firefox. The sensitivity setting added afterward,
+`--sensitivity 0.35`, was retested in Firefox and rated clearly better; 0.35
+is now the default. Build, unit, and integration tests pass. Details and
+remaining limitations are in [BROWSER_TEST.md](BROWSER_TEST.md), in
+particular the Firefox certificate exception and the single later Chromium
+disconnect.
 
-Alle temporären Testprozesse und Testdaten wurden auf Nutzerwunsch beendet
-beziehungsweise entfernt. Kein systemd-Service und keine Zertifikate wurden
-dauerhaft installiert. Der Quellcode wird mit diesem Stand erstmals committet.
-Der historische Bericht ab „Ziel“ bleibt zur Nachvollziehbarkeit erhalten.
+All temporary test processes and test data were stopped/removed at the
+user's request. No systemd service and no certificates were installed
+permanently. The source code is committed for the first time at this point.
+The historical report starting at "Goal" below is kept for traceability.
 
-## Nachtrag: Live-Diagnose am 2026-09-15
+## Addendum: live diagnosis on 2026-09-15
 
-Der untenstehende Text beschreibt den damaligen Stand. Im erneuten Test mit
-der echten Onshape-Anwendung wurde der Abbruch reproduziert und ein konkreter
-Auslöser gefunden: Nach dem Command-Tree sendet Onshape ein weiteres
-WAMP-Update mit Befehlsicons im Feld `images`, im beobachteten Dokument rund
-373.583 Bytes groß. Unmittelbar danach brach die Verbindung ab.
+The text below describes the state at the time. In a renewed test with the
+real Onshape application, the disconnect was reproduced and a concrete
+trigger was found: after the command tree, Onshape sends a further WAMP
+update with command icons in the `images` field, roughly 373,583 bytes in
+the observed document. The connection dropped immediately afterward.
 
-Die bisherigen Tests bis etwa 31 KB bildeten diesen Fall nicht ab.
-Der Eingangspuffer fasste nur 64 KiB, der Reassembly-Puffer 256 KiB.
-Ein einzelner großer Frame füllte den Eingangspuffer, bevor er vollständig
-dekodiert werden konnte; der Daemon schloss daraufhin die Verbindung.
-Auch bei kleineren Fragmenten war das gesamte Nachrichtenlimit zu niedrig.
-Der Browser meldete dies als 1006.
+The tests done so far, up to about 31 KB, never exercised this case. The
+input buffer only held 64 KiB, the reassembly buffer 256 KiB. A single large
+frame filled the input buffer before it could be fully decoded, and the
+daemon then closed the connection. Even with smaller fragments, the overall
+message limit was too low. The browser reported this as 1006.
 
-Ein neuer Integrationstest mit synthetischen Icon-Daten reproduzierte vor
-dem Fix einen TCP-Verbindungsreset. Nun gilt ein gemeinsames, begrenztes
-Nachrichtenlimit von 1 MiB; der Eingangspuffer bietet zusätzlich Platz für
-den Frame-Header. Tests für einzelne und fragmentierte Nachrichten von rund
-374 KB bestehen. Nach Austausch ausschließlich des temporären Testdaemons
-akzeptierte dieser die echte Icon-Nachricht; die zuvor fortlaufenden
-Reconnects hörten im Beobachtungszeitraum auf. Der Nutzer bestätigte anschließend den erfolgreichen Test der
-Maussteuerung und schloss Chromium. Der Testcontroller beendete den Daemon
-und entfernte das temporäre Browserprofil samt Zertifikat.
+A new integration test with synthetic icon data reproduced a TCP connection
+reset before the fix. There is now a shared, bounded message limit of 1 MiB;
+the input buffer additionally has room for the frame header. Tests for
+single and fragmented messages of about 374 KB pass. After swapping out only
+the temporary test daemon, it accepted the real icon message; the previously
+continuous reconnects stopped during the observation period. The user then
+confirmed successful testing of the mouse control and closed Chromium. The
+test controller stopped the daemon and removed the temporary browser
+profile along with its certificate.
 
-Damit waren die früheren Aussagen „Protokoll korrekt“ und „Server
-ausgeschlossen“ zu weitgehend. Ebenso beweist 1006 allein keine vom Server
-unabhängige TLS-/Browserursache. Die Kommentare, die den Leaf-Zertifikatswechsel
-als Lösung bezeichneten, wurden korrigiert.
+This means the earlier statements "protocol correct" and "server ruled out"
+were too broad. Likewise, 1006 alone does not prove a server-independent
+TLS/browser cause. The comments that named the leaf-certificate switch as
+the fix have been corrected.
 
-## Ziel
-Eigener, auditierbarer C-Daemon als sicherere Alternative zu [spacenav-ws](https://github.com/RmStorm/spacenav-ws),
-um eine SpaceMouse (via spacenavd) in Onshape unter Linux (Chromium + Firefox) nutzbar zu machen.
+## Goal
+An independent, auditable C daemon as a more secure alternative to
+[spacenav-ws](https://github.com/RmStorm/spacenav-ws), to make a SpaceMouse
+(via spacenavd) usable in Onshape on Linux (Chromium + Firefox).
 
-**Status: nicht abgeschlossen.** Der Daemon implementiert das Protokoll korrekt (siehe unten),
-aber die WebSocket-Verbindung zum Browser bricht nach ca. 1 Sekunde mit Code `1006` (abnormal
-closure, kein Close-Frame) ab. Die Ursache wurde trotz umfangreicher Eingrenzung nicht gefunden.
+**Status: not resolved.** The daemon implements the protocol correctly (see
+below), but the WebSocket connection to the browser drops after about 1
+second with code `1006` (abnormal closure, no close frame). The cause was
+not found despite extensive narrowing-down.
 
-Quellcode bleibt unter `~/dev/spnav-onshape-bridge` erhalten (nie committet, aber auf Wunsch
-nicht gelöscht). Alle Systeminstallation (Service, Zertifikate, Browser-Trust-Einträge) wurde
-rückgängig gemacht — siehe "Aufräumen" unten.
+Source code remains at `~/dev/spnav-onshape-bridge` (never committed, but
+kept at the user's request). All system installation (service, certificates,
+browser trust entries) has been reverted — see "Cleanup" below.
 
-## Was zuverlässig funktioniert (verifiziert)
+## What reliably works (verified)
 
-- **spacenavd + libspnav**: SpaceMouse Wireless wird korrekt erkannt, Events kommen sauber an.
-- **TLS-Handshake**: vollständig funktionsfähig, mit `openssl s_client` und einem echten
-  Python-WebSocket-Client verifiziert (Chain-Validierung, IP-SAN-Match, beides grün).
-- **HTTP/CORS-Layer**: `/3dconnexion/nlproxy`-Endpunkt liefert korrekte Antwort inkl.
-  `Access-Control-Allow-Origin` — im echten Browser bestätigt (grünes Schloss, valides JSON).
-- **WebSocket-Framing inkl. Fragmentierung**: RFC6455-Handshake und Frame-Codec (inkl. Nachbau
-  der Fragmentierungs-Reassembly für Onshapes ~20-30KB "commands"-Tree-Nachricht) wurden isoliert
-  getestet und funktionieren korrekt.
-- **WAMP-Protokoll-Logik**: Der komplette Handshake (create mouse/controller, Subscribe, Prefix-
-  Resolution) sowie die Motion-Event-zu-`view.affine`-Umrechnung (Rotation/Translation/Pivot,
-  Gram-Schmidt statt SVD) wurden gegen reale, mitgeschnittene Onshape-Nachrichten verifiziert —
-  inklusive echter SpaceMouse-Bewegungsdaten, die korrekt zu sinnvollen Kameramatrizen führten.
-- **Performance**: Ein simulierter Client mit einer echten ~31KB-Nachricht (Nachbau des
-  "commands"-Trees) und zehn schnellen Anfragen hintereinander bekam Antworten in <1ms. Der
-  Server lag bei 0% CPU-Auslastung während der gesamten Testphase.
-- **Origin-Allowlist (Sicherheitsfix)**: Live gegen falschen und korrekten Origin getestet —
-  funktioniert wie vorgesehen (403 bei fremder Origin).
+- **spacenavd + libspnav**: the SpaceMouse Wireless is detected correctly,
+  events arrive cleanly.
+- **TLS handshake**: fully functional, verified with `openssl s_client` and
+  a real Python WebSocket client (chain validation, IP-SAN match, both
+  green).
+- **HTTP/CORS layer**: the `/3dconnexion/nlproxy` endpoint returns the
+  correct response including `Access-Control-Allow-Origin` — confirmed in a
+  real browser (green lock, valid JSON).
+- **WebSocket framing including fragmentation**: the RFC6455 handshake and
+  frame codec (including reconstructing the fragmentation reassembly for
+  Onshape's ~20-30KB "commands" tree message) were tested in isolation and
+  work correctly.
+- **WAMP protocol logic**: the complete handshake (create mouse/controller,
+  subscribe, prefix resolution) as well as the motion-event-to-`view.affine`
+  conversion (rotation/translation/pivot, Gram-Schmidt instead of SVD) were
+  verified against real, captured Onshape messages — including real
+  SpaceMouse motion data that correctly produced sensible camera matrices.
+- **Performance**: a simulated client with a real ~31KB message
+  (reconstructing the "commands" tree) and ten rapid consecutive requests
+  got responses in <1ms. The server sat at 0% CPU usage throughout the test
+  phase.
+- **Origin allow-list (security fix)**: tested live against both a wrong and
+  a correct origin — works as intended (403 for a foreign origin).
 
-Kurz: Alles, was wir mit einem eigenen, nicht-Browser-Client (Python `websockets`) testen
-konnten, funktioniert einwandfrei — auch mit realistischen Nachrichtengrößen und -mustern.
+In short: everything we could test with our own, non-browser client (Python
+`websockets`) works flawlessly — including with realistic message sizes and
+patterns.
 
-## Das ungelöste Problem
+## The unresolved problem
 
-Sobald ein **echter Browser** (Chromium 153 oder Firefox) die Verbindung öffnet:
+As soon as a **real browser** (Chromium 153 or Firefox) opens the
+connection:
 
-1. TLS-Handshake und WAMP-Handshake laufen sauber durch.
-2. Reale Daten fließen einige hundert Millisekunden bis ~1 Sekunde lang korrekt (teils mehrere
-   volle Request/Response-Zyklen inklusive realer Mausbewegungsdaten).
-3. Die zugrundeliegende TCP/TLS-Verbindung wird dann **abrupt und ohne WebSocket-Close-Frame**
-   getrennt — bestätigt über direkte JS-Instrumentierung: `CloseEvent.code = 1006`,
-   `reason = ""`, `wasClean = false`.
-4. Onshapes eigene Reconnect-Logik (`window.ab.connect.maxRetries`) greift, baut die Verbindung
-   neu auf, dieselbe kurze funktionierende Phase, dann wieder Abbruch — Dauerschleife.
-5. Ergebnis für den Nutzer: ruckelige, verzögerte Reaktion, erhöhte CPU-Last (durch den
-   ständigen Reconnect-Zyklus inkl. Neuübertragung der großen Command-Tree-Nachricht).
+1. The TLS handshake and WAMP handshake complete cleanly.
+2. Real data flows correctly for a few hundred milliseconds up to about 1
+   second (sometimes several full request/response cycles including real
+   mouse motion data).
+3. The underlying TCP/TLS connection is then **abruptly disconnected without
+   a WebSocket close frame** — confirmed via direct JS instrumentation:
+   `CloseEvent.code = 1006`, `reason = ""`, `wasClean = false`.
+4. Onshape's own reconnect logic (`window.ab.connect.maxRetries`) kicks in,
+   re-establishes the connection, the same short working phase, then
+   disconnects again — an infinite loop.
+5. Result for the user: jerky, delayed response, increased CPU load (from
+   the constant reconnect cycle including retransmitting the large
+   command-tree message).
 
-Code 1006 bedeutet: der Abbruch geschieht **unterhalb** der WebSocket-Protokollebene (TCP-Reset
-oder TLS-Abbruch), nicht durch eine JS-seitige `ws.close()`-Entscheidung und nicht durch einen
-regulären WAMP-Protokollfehler unsererseits (kein Close-Frame, keine Fehlermeldung serverseitig).
+Code 1006 means the disconnect happens **below** the WebSocket protocol
+layer (TCP reset or TLS abort), not through a JS-side `ws.close()` decision
+and not through a regular WAMP protocol error on our side (no close frame,
+no error message server-side).
 
-## Eingegrenzte und ausgeschlossene Ursachen
+## Narrowed-down and ruled-out causes
 
-Jede der folgenden Hypothesen wurde konkret getestet (nicht nur vermutet) und **ausgeschlossen**:
+Each of the following hypotheses was concretely tested (not just assumed)
+and **ruled out**:
 
-| Hypothese | Test | Ergebnis |
+| Hypothesis | Test | Result |
 |---|---|---|
-| WebSocket-Frame-Fragmentierung nicht unterstützt | Fund: `first bytes: 01 ff 00 00` (FIN=0) in echten Logs; RFC6455-Reassembly implementiert und isoliert verifiziert | Bug real und behoben, aber **nicht** die Ursache des 1006-Problems |
-| Fehlender `Access-Control-Allow-Origin` (CORS) auf `/3dconnexion/nlproxy` | Header ergänzt, mit `curl` verifiziert | Behoben (Onshape kommt jetzt bis zum WebSocket-Versuch), löst aber nicht das Kernproblem |
-| Chrome/Firefox "Local Network Access" (LNA) / "Private Network Access" (PNA), allgemein | `chrome://flags/#local-network-access-check` → Disabled, Chromium neu gestartet | Keine Änderung |
-| LNA/PNA speziell für WebSockets (`LocalNetworkAccessChecksWebSockets`) | `chromium --disable-features=LocalNetworkAccessChecksWebSockets` | Keine Änderung |
-| Firefox-spezifisches LNA | `network.lna.skip-domains` = `cad.onshape.com` gesetzt | Keine Änderung |
-| Fehlender `Access-Control-Allow-Private-Network`-Header | Header zu HTTP- und WS-Upgrade-Antwort hinzugefügt | Keine Änderung |
-| Eigenes Server-Logging verlangsamt Event-Loop | Direkter Timing-Test mit simuliertem Client: <1ms Antwortzeit auch bei 31KB-Nachrichten | Ausgeschlossen — Server ist nicht der Flaschenhals |
-| Zertifikats-Vertrauensmodell: lokale CA (mächtiger, verdächtiger) vs. direkt gepinntes Leaf-Zertifikat (wie spacenav-ws es nutzt) | Umbau von CA+Leaf-Hierarchie auf einzelnes selbstsigniertes Leaf-Zertifikat, NSS-Import mit `P,,` (Peer-Trust) statt `C,,` (CA-Trust) | Keine Änderung |
-| Onshape-Dokument-Berechtigungen (403-Fehler auf `/api/v14/documents/.../permissionset`) | Mit neu erstelltem, garantiert eigenem Dokument getestet | Keine Änderung — Nutzer bestätigt: liegt nicht an Onshape/Permissions |
-| Werbeblocker/Privacy-Extension | Pi-hole (netzwerkweiter DNS-Blocker auf separatem Host) deaktiviert getestet | Keine Änderung (ohnehin für Loopback-Traffic irrelevant) |
-| Chrome-Sandboxing / Kernel-RC-Version (`7.3.0-rc2-1-mainline`) interagiert mit Netzwerk-Namespaces | `chromium --no-sandbox` | Keine Änderung |
+| WebSocket frame fragmentation not supported | Found: `first bytes: 01 ff 00 00` (FIN=0) in real logs; RFC6455 reassembly implemented and verified in isolation | Real bug, fixed, but **not** the cause of the 1006 problem |
+| Missing `Access-Control-Allow-Origin` (CORS) on `/3dconnexion/nlproxy` | Header added, verified with `curl` | Fixed (Onshape now gets as far as attempting the WebSocket), but doesn't solve the core problem |
+| Chrome/Firefox "Local Network Access" (LNA) / "Private Network Access" (PNA), in general | `chrome://flags/#local-network-access-check` → Disabled, Chromium restarted | No change |
+| LNA/PNA specifically for WebSockets (`LocalNetworkAccessChecksWebSockets`) | `chromium --disable-features=LocalNetworkAccessChecksWebSockets` | No change |
+| Firefox-specific LNA | `network.lna.skip-domains` set to `cad.onshape.com` | No change |
+| Missing `Access-Control-Allow-Private-Network` header | Header added to the HTTP and WS upgrade responses | No change |
+| Our own server logging slows the event loop | Direct timing test with a simulated client: <1ms response time even for 31KB messages | Ruled out — the server is not the bottleneck |
+| Certificate trust model: local CA (more powerful, more "suspicious") vs. a directly pinned leaf certificate (as spacenav-ws uses) | Switched from a CA+leaf hierarchy to a single self-signed leaf certificate, NSS import with `P,,` (peer trust) instead of `C,,` (CA trust) | No change |
+| Onshape document permissions (403 error on `/api/v14/documents/.../permissionset`) | Tested with a newly created, guaranteed-own document | No change — user confirmed: not an Onshape/permissions issue |
+| Ad blocker/privacy extension | Pi-hole (network-wide DNS blocker on a separate host) tested disabled | No change (irrelevant for loopback traffic anyway) |
+| Chrome sandboxing / kernel RC version (`7.3.0-rc2-1-mainline`) interacting with network namespaces | `chromium --no-sandbox` | No change |
 
-## Nicht mehr durchgeführter, aber vielversprechendster nächster Schritt
+## Most promising next step, not carried out
 
-**Die Referenzimplementierung (`uvx spacenav-ws@latest serve`, Python/FastAPI/Uvicorn) auf
-genau dieser Maschine, in genau diesem Browser, gegen dasselbe Dokument laufen lassen.**
+**Run the reference implementation (`uvx spacenav-ws@latest serve`,
+Python/FastAPI/Uvicorn) on this exact machine, in this exact browser,
+against the same document.**
 
-Dieser A/B-Test wurde begonnen (unser Dienst gestoppt, Port 8181 freigegeben), aber auf
-Nutzerwunsch abgebrochen, um stattdessen aufzuräumen und zu dokumentieren. Er hätte die Suche
-eindeutig in zwei Hälften geteilt:
+This A/B test was started (our service stopped, port 8181 freed) but
+abandoned at the user's request in favor of cleanup and documentation
+instead. It would have clearly split the search in two:
 
-- **Bricht spacenav-ws ebenfalls mit Code 1006 ab** → Ursache liegt an dieser Maschine/diesem
-  Browser-Build/dieser Netzwerkumgebung, nicht am eigenen Server-Code. Kein C-Code-Problem.
-- **spacenav-ws läuft stabil** → es gibt einen echten, noch unbekannten strukturellen
-  Unterschied zwischen unserer minimalen C-Implementierung und einer reifen ASGI/Uvicorn-
-  Websocket-Stack-Implementierung (z. B. HTTP-Header-Details, TCP-Socket-Optionen,
-  Keep-Alive-Verhalten, TLS-Record-Timing), der gezielt eingrenzbar wäre.
+- **spacenav-ws also disconnects with code 1006** → the cause lies with this
+  machine/this browser build/this network environment, not with our own
+  server code. Not a C-code problem.
+- **spacenav-ws runs stably** → there is a real, still-unknown structural
+  difference between our minimal C implementation and a mature ASGI/Uvicorn
+  WebSocket stack implementation (e.g. HTTP header details, TCP socket
+  options, keep-alive behavior, TLS record timing) that could be narrowed
+  down specifically.
 
-Falls das Thema später wieder aufgenommen wird, ist das der klar sinnvollste erste Schritt.
+If this topic is picked up again later, this is clearly the most sensible
+first step.
 
-## Aufräumen (durchgeführt am 2026-09-14)
+## Cleanup (performed on 2026-09-14)
 
-- systemd `--user`-Service gestoppt, deaktiviert, Unit-Datei entfernt
-- Binary aus `~/.local/bin/spnav-onshape-bridge` entfernt
-- Zertifikate/Keys aus `~/.local/state/spnav-onshape-bridge` entfernt
-- Zertifikats-Trust-Einträge aus `~/.pki/nssdb` (Chromium) und beiden Firefox-Profilen
-  (`99cn02xt.default`, `dhbxwyki.default-release`) entfernt, verifiziert sauber
+- systemd `--user` service stopped, disabled, unit file removed
+- Binary removed from `~/.local/bin/spnav-onshape-bridge`
+- Certificates/keys removed from `~/.local/state/spnav-onshape-bridge`
+- Certificate trust entries removed from `~/.pki/nssdb` (Chromium) and both
+  Firefox profiles (`99cn02xt.default`, `dhbxwyki.default-release`),
+  verified clean
 
-**Manuell durch dich noch zu erledigen** (nicht per Terminal automatisierbar):
+**Still to be done manually by you** (cannot be automated from the
+terminal):
 
-- Chromium: `chrome://extensions` → "SpaceMouse for Onshape" deinstallieren
-- Firefox: Tampermonkey → das Skript "Onshape 3D-Mouse on Linux" löschen
-- Firefox: `about:config` → `network.lna.skip-domains` zurücksetzen/leeren
-- Chromium: `chrome://flags/#local-network-access-check` zurück auf "Default" (falls noch
-  auf "Disabled" stehend)
-- Quellcode-Verzeichnis `~/dev/spnav-onshape-bridge` bleibt auf Wunsch erhalten; bei Bedarf
-  später selbst löschen (`rm -rf ~/dev/spnav-onshape-bridge`) — nie committet, daher ohne
-  Git-Historie unwiderruflich.
+- Chromium: `chrome://extensions` → uninstall "SpaceMouse for Onshape"
+- Firefox: Tampermonkey → delete the "Onshape 3D-Mouse on Linux" script
+- Firefox: `about:config` → reset/clear `network.lna.skip-domains`
+- Chromium: `chrome://flags/#local-network-access-check` back to "Default"
+  (if still set to "Disabled")
+- The source directory `~/dev/spnav-onshape-bridge` is kept at your request;
+  delete it yourself later if needed (`rm -rf ~/dev/spnav-onshape-bridge`) —
+  never committed, so this is irreversible without git history.
 
-## Für Onshape/SpaceMouse in der Zwischenzeit
+## In the meantime, for Onshape/SpaceMouse
 
-Bis (falls) das Problem gelöst wird, bleibt [spacenav-ws](https://github.com/RmStorm/spacenav-ws)
-die einzige bekannte funktionierende Lösung für diesen Anwendungsfall unter Linux — mit den
-eingangs genannten Sicherheitsvorbehalten (siehe erste Analyse: fehlender Origin-Check bei
-WebSocket-Upgrades, geteilter TLS-Key im öffentlichen Repo, ungepinnte Laufzeit-Nachladung).
+Until (if) this problem is solved, [spacenav-ws](https://github.com/RmStorm/spacenav-ws)
+remains the only known working solution for this use case on Linux — with
+the security caveats mentioned at the start (see the initial analysis:
+missing Origin check on WebSocket upgrades, shared TLS key in the public
+repo, unpinned runtime code fetching).
