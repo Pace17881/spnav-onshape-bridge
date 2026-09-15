@@ -49,16 +49,16 @@ systemctl --user restart spnav-onshape-bridge
 
 echo "==> Waiting for the daemon to generate its local certificate..."
 i=0
-while [ ! -f "$STATE_DIR/server.crt.pem" ]; do
+while [ ! -f "$STATE_DIR/ca.crt.pem" ]; do
 	i=$((i + 1))
 	if [ "$i" -gt 20 ]; then
-		echo "Timed out waiting for $STATE_DIR/server.crt.pem" >&2
+		echo "Timed out waiting for $STATE_DIR/ca.crt.pem" >&2
 		echo "Check: systemctl --user status spnav-onshape-bridge" >&2
 		exit 1
 	fi
 	sleep 0.5
 done
-echo "    found: $STATE_DIR/server.crt.pem"
+echo "    found: $STATE_DIR/ca.crt.pem"
 
 echo "==> Importing the certificate into Firefox's and Chromium's certificate stores"
 ./contrib/nss-trust-install.sh

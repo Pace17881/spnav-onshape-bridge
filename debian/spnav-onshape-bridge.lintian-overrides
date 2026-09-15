@@ -1,0 +1,5 @@
+# postinst prints the systemctl commands the user needs to run themselves
+# (this is a --user service; there is no system-wide unit for dpkg to
+# enable) - it never calls systemctl itself. Lintian's check greps for the
+# literal string, so it can't distinguish that from an actual call.
+spnav-onshape-bridge: maintainer-script-calls-systemctl [postinst:20]

@@ -3,6 +3,33 @@
 All notable changes to this project are documented here.
 Format loosely follows [Keep a Changelog](https://keepachangelog.com/).
 
+## [0.1.3] - 2026-09-15
+
+### Added
+- `man/spnav-onshape-bridge.1`, installed by `make install` for the manual,
+  Debian, and Arch install paths alike.
+
+### Fixed
+- `install.sh` waited for `$STATE_DIR/server.crt.pem` to appear before
+  continuing, a filename left over from before the 0.1.1 revert back to the
+  CA+leaf certificate model - the daemon has generated `ca.crt.pem` since
+  then, so every fresh manual install would silently time out at this step.
+- Arch packaging (`packaging/arch/PKGBUILD`) listed `libx11` as a runtime
+  `depends`, but the binary never actually links against `libX11.so` -
+  `libspnav`'s header only pulls in `X11/Xlib.h` at compile time when
+  `libspnav` itself was built with X11 support. Moved to `makedepends`.
+- Debian packaging's `postinst` triggered lintian's
+  `maintainer-script-calls-systemctl` check (false positive: it only prints
+  the commands, never runs them) - documented and suppressed via
+  `debian/spnav-onshape-bridge.lintian-overrides`.
+
+### Verified
+- Built both packages in clean containers and ran the distros' own
+  packaging-QA tools against the result: `lintian --pedantic` (Debian) is
+  now completely clean, and `namcap` (Arch) has no remaining findings
+  beyond well-known, benign noise for this kind of package (documented in
+  `packaging/README.md`).
+
 ## [0.1.2] - 2026-09-15
 
 ### Added

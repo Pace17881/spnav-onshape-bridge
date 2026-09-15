@@ -1,0 +1,106 @@
+.TH SPNAV-ONSHAPE-BRIDGE 1 "September 2026" "spnav-onshape-bridge 0.1.2" "User Commands"
+.SH NAME
+spnav-onshape-bridge \- bridge spacenavd 3D-mouse events to Onshape's browser 3Dconnexion API
+.SH SYNOPSIS
+.B spnav-onshape-bridge
+[\fB\-\-host\fR \fIIP\fR]
+[\fB\-\-port\fR \fIN\fR]
+[\fB\-\-state\-dir\fR \fIDIR\fR]
+[\fB\-\-sensitivity\fR \fIFACTOR\fR]
+.br
+.B spnav-onshape-bridge
+\fB\-\-doctor\fR
+.br
+.B spnav-onshape-bridge
+\fB\-\-help\fR
+.SH DESCRIPTION
+.B spnav-onshape-bridge
+lets Onshape (and other web applications that use the same 3Dconnexion
+browser API) drive their camera from a
+.BR spacenavd (1)
+controlled 3D mouse on Linux, in both Chromium and Firefox.
+.PP
+It listens on a loopback TLS/WebSocket endpoint that mimics the local
+service the proprietary Windows 3Dconnexion driver normally provides,
+translates
+.B spacenavd
+motion and button events into the WAMP-over-WebSocket protocol Onshape's
+client expects, and rejects any WebSocket upgrade whose
+.B Origin
+header is not on its allow-list. It generates its own per-installation TLS
+certificate rather than shipping or reusing one.
+.PP
+Setup requires steps beyond simply running the daemon (trusting the
+generated certificate, loading a small browser extension or userscript);
+see
+.B \-\-doctor
+below and the project's README.
+.SH OPTIONS
+.TP
+\fB\-\-host\fR \fIIP\fR
+Address to listen on. Defaults to 127.51.68.120, the address Onshape's
+client is hard-coded to probe.
+.TP
+\fB\-\-port\fR \fIN\fR
+TCP port to listen on, 1\-65535. Defaults to 8181.
+.TP
+\fB\-\-state\-dir\fR \fIDIR\fR
+Directory used to store the generated CA and leaf TLS certificates and
+keys. Defaults to \fB$STATE_DIRECTORY\fR when run as the shipped systemd
+\-\-user service, otherwise \fB$XDG_DATA_HOME/spnav-onshape-bridge\fR (or
+\fB~/.local/share/spnav-onshape-bridge\fR).
+.TP
+\fB\-\-sensitivity\fR \fIFACTOR\fR
+Motion speed multiplier, 0.01\-10. Defaults to 0.35. A value of 1
+corresponds to the original, unscaled motion mapping.
+.TP
+\fB\-\-doctor\fR
+Run a self-check of the local setup (spacenavd connectivity, certificate
+presence, whether the certificate is trusted by the system NSS database
+and any Firefox profiles) and exit. Intended as the first troubleshooting
+step; does not start the daemon.
+.TP
+\fB\-\-help\fR
+Print a short usage summary and exit.
+.SH EXIT STATUS
+.B 0
+on a clean exit (including a successful
+.BR \-\-help ),
+non-zero if
+.B \-\-doctor
+found a problem, argument parsing failed, or the daemon could not bind its
+listening socket or reach spacenavd.
+.SH FILES
+.TP
+.I $STATE_DIRECTORY
+or
+.I $XDG_DATA_HOME/spnav-onshape-bridge
+CA and leaf TLS certificate/key pairs generated on first run.
+.TP
+.I /usr/share/spnav-onshape-bridge/nss-trust-install.sh
+Imports the generated CA certificate into the system NSS database and any
+Firefox profiles, so browsers trust the daemon's TLS endpoint without a
+manual per-site exception.
+.TP
+.I /usr/share/spnav-onshape-bridge/browser-extension/
+Chromium extension / Firefox userscript that makes Onshape probe for a
+local 3Dconnexion driver on Linux.
+.SH SECURITY CONSIDERATIONS
+This daemon accepts connections from any local process able to reach its
+loopback port and parses untrusted WebSocket/HTTP/JSON input from it. The
+Origin allow-list is the only barrier preventing an arbitrary local web
+page from reading 3D-mouse motion or issuing camera RPCs; it is not
+intended to resist an already-compromised browser or a local attacker with
+code execution as the invoking user. See
+.B SECURITY.md
+in the project source for the full threat model and how to report a
+vulnerability.
+.SH SEE ALSO
+.BR spacenavd (1)
+.PP
+Full documentation, including the certificate trust and browser extension
+setup steps that cannot be completed by this program alone:
+.br
+.I /usr/share/doc/spnav-onshape-bridge/README.md
+.SH AUTHOR
+Sebastian Polster

@@ -1,17 +1,22 @@
 # Maintainer: Sebastian Polster <polsterseb@protonmail.com>
 pkgname=spnav-onshape-bridge
-pkgver=0.1.1
+pkgver=0.1.3
 pkgrel=1
 pkgdesc="Onshape 3D-mouse bridge for spacenavd (Chromium and Firefox on Linux)"
 arch=('x86_64')
 url="https://github.com/FreeSpacenav/spacenavd/issues/30"
 license=('GPL-3.0-or-later')
-depends=('libspnav' 'openssl' 'libx11')
+depends=('libspnav' 'openssl')
 optdepends=(
 	'spacenavd: the 6dof-device driver this bridge connects to (AUR)'
 	'nss: certutil, to import the certificate into browser trust stores'
 )
-makedepends=('git')
+# libx11 is a build-time-only dependency: libspnav's own header pulls in
+# X11/Xlib.h when libspnav was built with X11 support, but this project
+# never calls the X11-specific spnav_x11_*() functions, so the resulting
+# binary never links against libX11.so - confirmed with namcap, which flags
+# it as an unneeded runtime dependency if listed under `depends`.
+makedepends=('git' 'libx11')
 install=spnav-onshape-bridge.install
 # REPLACE with the project's real repository URL before submitting to the
 # AUR - this is a placeholder since the project has not been published yet.
@@ -45,4 +50,5 @@ package() {
 	install -Dm644 POSTMORTEM.md "$pkgdir/usr/share/doc/$pkgname/POSTMORTEM.md"
 	install -Dm644 BROWSER_TEST.md "$pkgdir/usr/share/doc/$pkgname/BROWSER_TEST.md"
 	install -Dm644 COPYING "$pkgdir/usr/share/licenses/$pkgname/COPYING"
+	# man/spnav-onshape-bridge.1 is installed by `make install` above.
 }

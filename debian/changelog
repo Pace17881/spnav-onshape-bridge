@@ -1,3 +1,24 @@
+spnav-onshape-bridge (0.1.3-1) unstable; urgency=medium
+
+  * Add a manual page (fixes lintian's no-manual-page warning).
+  * Add a lintian override, with justification, for postinst's
+    false-positive maintainer-script-calls-systemctl warning.
+  * Fix install.sh waiting on a certificate filename left over from before
+    the 0.1.1 CA+leaf revert.
+  * Verified against a real lintian --pedantic run in a clean container:
+    no remaining warnings.
+
+ -- Sebastian Polster <polsterseb@protonmail.com>  Tue, 15 Sep 2026 17:00:00 +0000
+
+spnav-onshape-bridge (0.1.2-1) unstable; urgency=medium
+
+  * Add clang-tidy/cppcheck/shellcheck/sanitizer CI and fix everything they
+    found: a latent int-overflow trap in MSG_BUF_SIZE's computation, atoi
+    instead of strtol for --port, predictable rand()-based WAMP IDs, and an
+    unchecked calloc() in controller_create() that would crash on OOM.
+
+ -- Sebastian Polster <polsterseb@protonmail.com>  Tue, 15 Sep 2026 16:30:00 +0000
+
 spnav-onshape-bridge (0.1.1-1) unstable; urgency=medium
 
   * Restore local CA + leaf certificate model; fixes Firefox needing a

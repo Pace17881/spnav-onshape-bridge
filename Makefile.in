@@ -43,10 +43,13 @@ clean:
 install: $(bin)
 	install -d $(DESTDIR)$(PREFIX)/bin
 	install -m 755 $(bin) $(DESTDIR)$(PREFIX)/bin/$(bin)
+	install -d $(DESTDIR)$(PREFIX)/share/man/man1
+	install -m 644 man/spnav-onshape-bridge.1 $(DESTDIR)$(PREFIX)/share/man/man1/
 
 .PHONY: uninstall
 uninstall:
 	rm -f $(DESTDIR)$(PREFIX)/bin/$(bin)
+	rm -f $(DESTDIR)$(PREFIX)/share/man/man1/spnav-onshape-bridge.1
 
 tests/test_ws: tests/test_ws.c src/ws.o
 	$(CC) $(CFLAGS) -o $@ $^ $(ssl_libs)
