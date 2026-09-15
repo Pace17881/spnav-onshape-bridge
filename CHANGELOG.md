@@ -3,6 +3,61 @@
 All notable changes to this project are documented here.
 Format loosely follows [Keep a Changelog](https://keepachangelog.com/).
 
+## [0.1.6] - 2026-09-15
+
+### Fixed
+- **Stack buffer overflow in the main event loop** (`src/main.c`): the
+  per-iteration `client_idx[]` array, used to map poll() results back to
+  client slots, was sized `MAX_CLIENTS` (8) but indexed the same way as
+  `pfds[]` - offset by 2 for the listener and spacenavd fds - so it needed
+  room for `2 + MAX_CLIENTS` entries. With 7 or 8 simultaneously connected
+  clients (a realistic scenario, e.g. several browser tabs), the last one
+  or two writes landed past the end of the array, corrupting adjacent stack
+  memory. Confirmed with AddressSanitizer: reverting the fix reliably
+  reproduces a `stack-buffer-overflow` abort pointing at the exact write;
+  with it, `make test-sanitize` and the new multi-client integration test
+  below are both clean. Found by the new `tests/test_robustness.py`
+  MAX_CLIENTS test, not by manual testing or a user report - the existing
+  suite never held more than 1-2 connections open simultaneously.
+
+### Added
+- `make coverage`: line coverage per `src/*.c` file via `gcov`, run after
+  the full `make test`/`make test-integration` suite.
+- `tests/test_cli.py`: black-box tests for `--port`/`--sensitivity`
+  argument validation, `--help`, and `--doctor`, run against
+  `tests/test_daemon` so results don't depend on whether a real spacenavd
+  happens to be running on the machine executing the tests.
+- `tests/test_robustness.py` (the overflow above, plus): spacenavd motion
+  events now fan out correctly to every simultaneously subscribed client
+  (previously untested - `tests/stub_spnav.c` only ever returned "no
+  event"), and an oversized single WebSocket frame is rejected without
+  crashing or hanging the daemon for other clients.
+- `tests/stub_spnav.c` can now inject a synthetic spacenavd event from
+  outside the test process via a `SPNAV_TEST_EVENTS` FIFO, for the fan-out
+  test above.
+- `tests/wstest.py`: shared TLS/WS/WAMP test helpers factored out for the
+  two new test files (`tests/test_transport.py` is left untouched, using
+  its own pre-existing, already-verified helpers).
+
+Line coverage across `src/*.c` went from 71.9% to 79.1% with this change;
+see `make coverage`'s per-file breakdown. The remaining gaps are
+`src/spnav_bridge.c` (0% - the real libspnav wrapper is replaced by a stub
+in every automated test; only ever exercised manually against real
+hardware) and parts of `src/main.c`'s `--doctor` subsystem (drives real
+subprocesses and inspects real system state, not easily mocked).
+
+## [0.1.5] - 2026-09-15
+
+### Changed
+- Translated `POSTMORTEM.md` and `BROWSER_TEST.md` from German to English
+  ahead of publishing - both are linked from README.md, CONTRIBUTING.md,
+  CHANGELOG.md and `src/tls.c`'s comments as the record behind several
+  design decisions (the CA+leaf certificate model, the 1 MiB message
+  limit, the 0.35 sensitivity default), so they needed to be readable by
+  the same audience as the rest of the project. Content is unchanged -
+  every number, hypothesis, and the ruled-out-causes table carried over
+  exactly.
+
 ## [0.1.4] - 2026-09-15
 
 ### Added

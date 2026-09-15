@@ -37,7 +37,15 @@ make test-integration   # requires python3: TLS/HTTP handshake against a simulat
 make test-sanitize      # rebuilds and re-runs the above under ASan+UBSan
 make lint                # requires clang-tidy and cppcheck
 make shellcheck          # requires shellcheck; covers configure and contrib/*.sh
+make coverage            # requires gcov; line coverage per src/*.c file
 ```
+
+`make test-integration` also runs `tests/test_cli.py` (argument parsing and
+`--doctor`, against `tests/test_daemon` so it doesn't depend on whether a
+real spacenavd happens to be running) and `tests/test_robustness.py`
+(spacenavd-event fan-out to multiple simultaneous clients, the MAX_CLIENTS
+connection limit, and the oversized-single-frame rejection path) -
+`tests/wstest.py` has the shared TLS/WS/WAMP helpers those two use.
 
 A change that touches `src/controller.c`, `src/wamp.c`, `src/ws.c`, or
 `src/mat4.c` should come with a test in `tests/` exercising it - see the

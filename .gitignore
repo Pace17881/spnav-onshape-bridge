@@ -8,6 +8,10 @@ tests/test_controller
 cfgtest.log
 tests/test_ws
 tests/test_daemon
+tests/__pycache__/
+*.gcov
+*.gcda
+*.gcno
 
 # Arch package build artifacts (packaging/arch/PKGBUILD stays)
 packaging/arch/src/

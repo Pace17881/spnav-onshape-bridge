@@ -60,6 +60,8 @@ tests/test_daemon: tests/stub_spnav.c $(filter-out src/spnav_bridge.o,$(obj))
 .PHONY: test-integration
 test-integration: tests/test_daemon
 	python3 tests/test_transport.py
+	python3 tests/test_cli.py
+	python3 tests/test_robustness.py
 
 # Rebuilds everything with AddressSanitizer + UndefinedBehaviorSanitizer and
 # runs the full test suite under them, then cleans up so a normal `make`
@@ -102,3 +104,33 @@ shellcheck:
 	else \
 		echo "shellcheck not found (Arch: pacman -S shellcheck | Debian/Ubuntu: apt install shellcheck) - skipping" >&2; \
 	fi
+
+# Line coverage for own_src (not third_party/cJSON.c - vendored, not ours
+# to improve) via the full test + test-integration suite. LC_ALL=C keeps
+# gcov's "Lines executed:NN.NN% of N" summary line locale-independent so it
+# can be parsed reliably. Rebuilds clean afterward, same as test-sanitize -
+# coverage-instrumented objects shouldn't leak into a normal `make`.
+.PHONY: coverage
+coverage:
+	@if ! command -v gcov >/dev/null 2>&1; then \
+		echo "gcov not found (ships with gcc) - skipping" >&2; \
+		exit 0; \
+	fi
+	$(MAKE) clean
+	$(MAKE) test test-integration \
+		user_cflags="--coverage -O0" \
+		user_ldflags="--coverage"
+	@rm -f ./*.gcov
+	@echo; echo "Line coverage (src/*.c):"
+	@total_lines=0; total_covered=0; \
+	for f in $(own_src); do \
+		summary=$$(LC_ALL=C gcov -n $$f -o src 2>/dev/null | grep "Lines executed" | head -1); \
+		pct=$$(echo "$$summary" | sed -E 's/Lines executed:([0-9.]+)% of ([0-9]+)/\1/'); \
+		lines=$$(echo "$$summary" | sed -E 's/Lines executed:([0-9.]+)% of ([0-9]+)/\2/'); \
+		printf "  %-24s %6s%%  (%s lines)\n" "$$f" "$$pct" "$$lines"; \
+		total_lines=$$((total_lines + lines)); \
+		total_covered=$$(awk -v c=$$total_covered -v p=$$pct -v l=$$lines 'BEGIN{printf "%.4f", c + (p/100*l)}'); \
+	done; \
+	awk -v c=$$total_covered -v t=$$total_lines 'BEGIN{printf "  %-24s %6.1f%%  (%d lines)\n", "TOTAL", (c/t*100), t}'
+	@rm -f ./*.gcov src/*.gcda src/*.gcno tests/*.gcda tests/*.gcno third_party/*.gcda third_party/*.gcno
+	$(MAKE) clean

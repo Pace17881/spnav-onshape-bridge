@@ -1,3 +1,21 @@
+spnav-onshape-bridge (0.1.6-1) unstable; urgency=high
+
+  * Fix a stack buffer overflow in the main event loop that could corrupt
+    memory with 7-8 simultaneously connected clients (e.g. several browser
+    tabs). Found via a new multi-client integration test and confirmed
+    with AddressSanitizer.
+  * Add tests/test_cli.py, tests/test_robustness.py, and a make coverage
+    target.
+
+ -- Sebastian Polster <polsterseb@protonmail.com>  Tue, 15 Sep 2026 19:00:00 +0000
+
+spnav-onshape-bridge (0.1.5-1) unstable; urgency=medium
+
+  * Translate POSTMORTEM.md and BROWSER_TEST.md to English ahead of
+    publishing.
+
+ -- Sebastian Polster <polsterseb@protonmail.com>  Tue, 15 Sep 2026 18:30:00 +0000
+
 spnav-onshape-bridge (0.1.4-1) unstable; urgency=medium
 
   * Point Homepage/Source at the project's real repository ahead of first

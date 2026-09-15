@@ -698,7 +698,12 @@ int main(int argc, char **argv)
 		int nfds = 0;
 		int poll_timeout = 1000;
 		int listen_idx, spnav_idx;
-		int client_idx[MAX_CLIENTS];
+		/* Indexed the same way as pfds[] (offset by the listener and spnav
+		 * slots), not from 0 - must match pfds's size, not just MAX_CLIENTS,
+		 * or the last one or two clients (once >= MAX_CLIENTS-1 are
+		 * connected) overflow this array by 1-2 ints. Found via
+		 * tests/test_robustness.py's MAX_CLIENTS test hanging under ASan. */
+		int client_idx[2 + MAX_CLIENTS];
 
 		pfds[nfds].fd = lfd;
 		pfds[nfds].events = POLLIN;
