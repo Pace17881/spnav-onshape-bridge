@@ -1,3 +1,15 @@
+spnav-onshape-bridge (0.1.7-1) unstable; urgency=medium
+
+  * Remove a leftover diagnostic WebSocket patch from the Chromium
+    extension that replaced window.WebSocket page-wide.
+  * Restrict the navigator.platform spoof (both the Chromium extension and
+    the Firefox userscript) to the top-level frame only, instead of every
+    frame/iframe on the page - suspected of interfering with unrelated
+    Onshape features (reported: model export) in a nested rendering
+    context.
+
+ -- Sebastian Polster <polsterseb@protonmail.com>  Tue, 15 Sep 2026 19:30:00 +0000
+
 spnav-onshape-bridge (0.1.6-1) unstable; urgency=high
 
   * Fix a stack buffer overflow in the main event loop that could corrupt

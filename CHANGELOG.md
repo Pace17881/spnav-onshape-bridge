@@ -3,6 +3,32 @@
 All notable changes to this project are documented here.
 Format loosely follows [Keep a Changelog](https://keepachangelog.com/).
 
+## [0.1.7] - 2026-09-15
+
+### Fixed
+- `browser-extension/content.js` still had a "TEMPORARY diagnostic" patch
+  that replaced `window.WebSocket` globally on the whole Onshape page
+  (`all_frames: true`, `world: MAIN`) - a leftover from the original
+  connection-drop debugging (see POSTMORTEM.md) that was never removed,
+  despite that same file's comment claiming "one property override, on one
+  site, nothing else". Removed. It only ever existed in the Chromium
+  extension, not the Firefox userscript.
+- The `navigator.platform` spoof itself (both `content.js` and the Firefox
+  userscript) applied to every frame on the page, not just the top-level
+  document, via `all_frames: true` / Tampermonkey's frame-injection
+  default. There's no reason a nested iframe needs to see a spoofed
+  platform - only the top-level document drives the 3D-mouse connection -
+  and reported after upgrading to this version: a spoofed platform in a
+  hidden iframe (e.g. one Onshape might use for export/thumbnail
+  rendering) could plausibly make Onshape's own code pick a
+  Windows-assuming path (such as a specific GPU adapter request) that
+  doesn't correspond to reality on Linux, breaking unrelated features like
+  model export. Restricted to the top-level frame only
+  (`all_frames: false` in `manifest.json`, `@noframes` in the userscript).
+  Not yet independently confirmed as the fix for the reported export
+  failure - report back after reloading the extension/updating the
+  userscript and retrying export.
+
 ## [0.1.6] - 2026-09-15
 
 ### Fixed

@@ -7,10 +7,14 @@
 //               this userscript. Identical logic to content.js.
 // @match        https://cad.onshape.com/documents/*
 // @run-at       document-start
+// @noframes
 // @grant        none
-// @version      0.1.0
+// @version      0.1.1
 // @license      MIT
 // ==/UserScript==
 
+// Top-level frame only (@noframes) - see content.js's comment on why a
+// nested iframe (e.g. one Onshape might use for export/thumbnail
+// rendering) shouldn't also see a spoofed platform.
 Object.defineProperty(Navigator.prototype, 'platform', { get: () => 'Win32' });
 console.log('[spnav-onshape-bridge] navigator.platform ->', navigator.platform);
