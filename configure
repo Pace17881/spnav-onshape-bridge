@@ -66,6 +66,23 @@ if ! pkg-config --exists openssl 2>/dev/null; then
 	fi
 fi
 
+# This project is GPLv3, which is compatible with Apache-2.0 - OpenSSL's own
+# license since 3.0. Older OpenSSL used a dual OpenSSL/SSLeay license that is
+# NOT GPL-compatible without an explicit linking exception this project
+# doesn't have, so require 3.0+ rather than silently building something with
+# an unresolved license conflict. Checked via the openssl(1) CLI as a
+# reasonable proxy for the library version - good enough for this
+# hand-written configure, matching its existing header/pkg-config presence
+# checks above rather than a hard version guarantee.
+if command -v openssl >/dev/null 2>&1; then
+	ossl_major=$(openssl version 2>/dev/null | sed -n 's/^OpenSSL \([0-9][0-9]*\)\..*/\1/p')
+	if [ -n "$ossl_major" ] && [ "$ossl_major" -lt 3 ] 2>/dev/null; then
+		echo "OpenSSL >= 3.0 required, found: $(openssl version)" >&2
+		echo "(this project is GPLv3, which needs OpenSSL's Apache-2.0 license from 3.0 on)" >&2
+		exit 1
+	fi
+fi
+
 if [ ! -f /usr/include/spnav.h ] && [ ! -f /usr/local/include/spnav.h ]; then
 	echo "libspnav headers not found (build/install libspnav first: https://github.com/FreeSpacenav/libspnav)" >&2
 	exit 1

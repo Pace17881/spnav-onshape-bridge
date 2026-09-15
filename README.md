@@ -67,8 +67,10 @@ make install      # installs to $PREFIX/bin (default /usr/local), or run from ./
 ```
 
 Requires `libspnav` (built/installed from this project's sibling
-[libspnav](https://github.com/FreeSpacenav/libspnav) repo) and OpenSSL
-development headers.
+[libspnav](https://github.com/FreeSpacenav/libspnav) repo, modified
+BSD-3-Clause license) and OpenSSL (Apache-2.0, 3.0 or later - `configure`
+checks for this) development headers. Neither is bundled; both are only
+dynamically linked at build time.
 
 ## Installing a package instead
 

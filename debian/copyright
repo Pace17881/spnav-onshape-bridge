@@ -1,6 +1,11 @@
 Format: https://www.debian.org/doc/packaging-manuals/copyright-format/1.0/
 Upstream-Name: spnav-onshape-bridge
 Source: https://github.com/Pace17881/spnav-onshape-bridge
+Comment:
+ This package dynamically links against libspnav (modified BSD-3-Clause,
+ Debian package libspnav-dev/libspnav1) and OpenSSL (Apache-2.0). Neither is
+ bundled here - see their own packages' copyright files for their license
+ texts.
 
 Files: *
 Copyright: 2026 Sebastian Polster <polsterseb@protonmail.com>

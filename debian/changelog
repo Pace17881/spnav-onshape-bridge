@@ -1,3 +1,11 @@
+spnav-onshape-bridge (0.1.9-1) unstable; urgency=low
+
+  * Add GPLv3 headers to every source file (matching spacenavd's
+    convention), require OpenSSL >= 3.0 in ./configure, and document
+    libspnav's/OpenSSL's licenses in debian/copyright and README.md.
+
+ -- Sebastian Polster <polsterseb@protonmail.com>  Tue, 15 Sep 2026 20:30:00 +0000
+
 spnav-onshape-bridge (0.1.8-1) unstable; urgency=low
 
   * Add a --verbose flag and gate the per-message WAMP logging line behind

@@ -3,6 +3,30 @@
 All notable changes to this project are documented here.
 Format loosely follows [Keep a Changelog](https://keepachangelog.com/).
 
+## [0.1.9] - 2026-09-15
+
+### Added
+- Full GPLv3 license headers in every `src/*.c`/`src/*.h` file, matching
+  spacenavd's own per-file convention (this project previously relied on
+  `COPYING` alone).
+- `configure` now requires OpenSSL >= 3.0 and fails with a clear message
+  otherwise. This project is GPLv3, which is compatible with OpenSSL's
+  Apache-2.0 license from 3.0 on; older OpenSSL's own dual OpenSSL/SSLeay
+  license is not GPL-compatible without an explicit linking exception this
+  project doesn't have.
+- Named `libspnav`'s license (modified BSD-3-Clause) next to its mention in
+  README.md, and added a `Comment:` field to `debian/copyright` noting the
+  licenses of both dynamically-linked, non-bundled dependencies
+  (libspnav, OpenSSL).
+
+Prompted by an audit of the project's own and third-party licensing ahead
+of publication: confirmed compatible license chain throughout (this
+project GPLv3; libspnav modified BSD-3-Clause; spacenavd and spacenav-ws,
+credited for the reverse-engineered protocol, both GPLv3 themselves; cJSON
+MIT, vendored and already attributed; OpenSSL Apache-2.0 from 3.0 on) -
+no incompatibilities found, but the file-header and OpenSSL-version gaps
+above were real and are now closed.
+
 ## [0.1.8] - 2026-09-15
 
 ### Changed
