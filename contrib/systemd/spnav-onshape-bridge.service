@@ -6,7 +6,14 @@ Wants=spacenavd.service
 
 [Service]
 Type=simple
-ExecStart=%h/.local/bin/spnav-onshape-bridge
+# Bare filename (not an absolute path): the binary lives in different places
+# depending on how it was installed (a distro package puts it in /usr/bin,
+# install.sh puts it in ~/.local/bin) - systemd looks up a bare filename in
+# $PATH the same way a shell would, so this one unit file works for both,
+# as long as both locations are covered here explicitly (systemd --user's
+# own default $PATH does not reliably include ~/.local/bin).
+Environment=PATH=/usr/local/bin:/usr/bin:%h/.local/bin
+ExecStart=spnav-onshape-bridge
 Restart=on-failure
 RestartSec=2
 

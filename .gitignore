@@ -8,3 +8,19 @@ tests/test_controller
 cfgtest.log
 tests/test_ws
 tests/test_daemon
+
+# Arch package build artifacts (packaging/arch/PKGBUILD stays)
+packaging/arch/src/
+packaging/arch/pkg/
+packaging/arch/*.pkg.tar.*
+packaging/arch/*.log
+
+# Debian package build artifacts (debian/ packaging sources stay)
+debian/.debhelper/
+debian/spnav-onshape-bridge/
+debian/files
+debian/*.substvars
+debian/*.debhelper.log
+debian/debhelper-build-stamp
+obj-*/
+
