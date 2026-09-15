@@ -204,14 +204,30 @@ static int doctor_check_cert(const char *state_dir)
 {
 	char crt[600];
 	const char *home = getenv("HOME");
+	const char *xdg_state = getenv("XDG_STATE_HOME");
 	int trusted_anywhere = 0;
 
-	snprintf(crt, sizeof crt, "%s/server.crt.pem", state_dir);
+	/* Mirrors contrib/nss-trust-install.sh: when run under the systemd
+	 * --user service, the certificate lives under XDG_STATE_HOME
+	 * (StateDirectory=); run by hand in the foreground, it defaults to
+	 * `state_dir` (XDG_DATA_HOME) instead - see default_state_dir(). This
+	 * command is normally run by hand, so check the systemd location too
+	 * rather than only whichever one applies to *this* invocation. */
+	if(xdg_state && *xdg_state) {
+		snprintf(crt, sizeof crt, "%s/spnav-onshape-bridge/server.crt.pem", xdg_state);
+	} else if(home && *home) {
+		snprintf(crt, sizeof crt, "%s/.local/state/spnav-onshape-bridge/server.crt.pem", home);
+	} else {
+		crt[0] = 0;
+	}
 	printf("[..] certificate file ...");
-	if(access(crt, R_OK) != 0) {
-		printf(" MISSING (%s)\n", crt);
-		printf("     -> run spnav-onshape-bridge once (without --doctor) to generate it\n");
-		return 0;
+	if(crt[0] == 0 || access(crt, R_OK) != 0) {
+		snprintf(crt, sizeof crt, "%s/server.crt.pem", state_dir);
+		if(access(crt, R_OK) != 0) {
+			printf(" MISSING (%s)\n", crt);
+			printf("     -> run spnav-onshape-bridge once (without --doctor) to generate it\n");
+			return 0;
+		}
 	}
 	printf(" OK (%s)\n", crt);
 
