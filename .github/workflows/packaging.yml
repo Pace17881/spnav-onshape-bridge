@@ -50,10 +50,18 @@ jobs:
     runs-on: ubuntu-latest
     container: archlinux:base-devel
     steps:
+      # archlinux:base-devel has no git preinstalled. actions/checkout@v4
+      # needs git available *before* it runs, or it silently falls back to
+      # a git-less tarball download with no .git directory at all - which
+      # then breaks the git+file:// source below ("does not appear to be a
+      # git repository"). So install git first, checkout second.
+      - name: Install git (needed before checkout)
+        run: pacman -Sy --noconfirm --needed git
+
       - uses: actions/checkout@v4
 
-      - name: Install build dependencies
-        run: pacman -Sy --noconfirm --needed git libspnav openssl libx11
+      - name: Install remaining build dependencies
+        run: pacman -Sy --noconfirm --needed libspnav openssl libx11
 
       - name: Point PKGBUILD at this checkout
         # The real PKGBUILD fetches a tagged release from the project's

@@ -3,6 +3,21 @@
 All notable changes to this project are documented here.
 Format loosely follows [Keep a Changelog](https://keepachangelog.com/).
 
+## [0.1.11] - 2026-09-15
+
+### Fixed
+- `.github/workflows/packaging.yml`'s `arch-package` job still failed after
+  0.1.10's fix ("does not appear to be a git repository") - the real cause
+  was different from what that fix addressed: `archlinux:base-devel` has no
+  `git` preinstalled, and `actions/checkout@v4` running before it was
+  installed silently falls back to a git-less tarball download, leaving no
+  `.git` directory for the `git+file://` PKGBUILD source to clone from
+  afterward. Fixed by installing `git` in a step *before* `actions/checkout`
+  instead of after. (0.1.10's `safe.directory` fix addressed a different
+  problem that only showed up in this project's own local Docker
+  reproduction, not the real failure - left in place since it's harmless,
+  but it wasn't the actual fix.)
+
 ## [0.1.10] - 2026-09-15
 
 ### Fixed
