@@ -1,6 +1,6 @@
 Format: https://www.debian.org/doc/packaging-manuals/copyright-format/1.0/
 Upstream-Name: spnav-onshape-bridge
-Source: https://github.com/FreeSpacenav/spacenavd/issues/30
+Source: https://github.com/Pace17881/spnav-onshape-bridge
 
 Files: *
 Copyright: 2026 Sebastian Polster <polsterseb@protonmail.com>

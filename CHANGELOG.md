@@ -3,6 +3,24 @@
 All notable changes to this project are documented here.
 Format loosely follows [Keep a Changelog](https://keepachangelog.com/).
 
+## [0.1.4] - 2026-09-15
+
+### Added
+- A trademark/no-affiliation notice in README.md: the project reimplements
+  a small part of Onshape/3Dconnexion's published client-side behavior to
+  interoperate with it, and doesn't claim any affiliation.
+
+### Changed
+- Replaced every placeholder/upstream-issue URL used as this project's own
+  identity with its real repository, ahead of first publication:
+  `https://github.com/Pace17881/spnav-onshape-bridge` now appears in
+  README.md's badges, `debian/control`'s Homepage, `debian/copyright`'s
+  Source, `packaging/arch/PKGBUILD`'s url/source, the systemd unit's
+  Documentation=, and `.github/workflows/packaging.yml`'s local-checkout
+  substitution. Prose references to the spacenavd#30 upstream discussion
+  (README.md, CONTRIBUTING.md) are left as-is - those describe motivation,
+  not this project's own identity.
+
 ## [0.1.3] - 2026-09-15
 
 ### Added

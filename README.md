@@ -1,14 +1,18 @@
 # spnav-onshape-bridge
 
-<!-- This repo has no public home yet - replace <owner>/spnav-onshape-bridge
-     below once it's pushed somewhere, otherwise these badges 404. -->
-![build](https://github.com/<owner>/spnav-onshape-bridge/actions/workflows/build.yml/badge.svg)
-![packaging](https://github.com/<owner>/spnav-onshape-bridge/actions/workflows/packaging.yml/badge.svg)
+![build](https://github.com/Pace17881/spnav-onshape-bridge/actions/workflows/build.yml/badge.svg)
+![packaging](https://github.com/Pace17881/spnav-onshape-bridge/actions/workflows/packaging.yml/badge.svg)
 
 A small, self-contained C daemon that lets [Onshape](https://www.onshape.com/)
 (and any other web app using the same 3Dconnexion browser API) use a
 [spacenavd](https://github.com/FreeSpacenav/spacenavd)-driven 3D mouse on
 Linux, in both Chromium and Firefox.
+
+*Not affiliated with, endorsed by, or supported by Onshape, PTC, or
+3Dconnexion. "Onshape" and "3Dconnexion" are trademarks of their respective
+owners; this project interoperates with their published client-side behavior
+the same way a browser extension or userscript does, without redistributing
+any of their code.*
 
 The current bridge has been tested interactively with Onshape in Chromium
 153 and Firefox 155. It accepts the large command-icon messages that caused

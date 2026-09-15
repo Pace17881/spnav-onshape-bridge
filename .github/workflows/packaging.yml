@@ -53,11 +53,10 @@ jobs:
 
       - name: Point PKGBUILD at this checkout
         # The real PKGBUILD fetches a tagged release from the project's
-        # repository (once published); in CI we build the commit under test
-        # instead, the same way this was validated locally before the
-        # placeholder URL existed.
+        # repository; in CI we build the commit under test instead, since a
+        # PR branch usually isn't tagged yet.
         run: |
-          sed -i "s#\$pkgname::git+https://example.invalid/spnav-onshape-bridge.git#\$pkgname::git+file://${GITHUB_WORKSPACE}#" \
+          sed -i "s#\$pkgname::git+https://github.com/Pace17881/spnav-onshape-bridge.git#\$pkgname::git+file://${GITHUB_WORKSPACE}#" \
             packaging/arch/PKGBUILD
 
       - name: Build package as non-root (makepkg refuses to run as root)

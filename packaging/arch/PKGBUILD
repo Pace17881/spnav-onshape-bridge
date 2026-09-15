@@ -1,10 +1,10 @@
 # Maintainer: Sebastian Polster <polsterseb@protonmail.com>
 pkgname=spnav-onshape-bridge
-pkgver=0.1.3
+pkgver=0.1.4
 pkgrel=1
 pkgdesc="Onshape 3D-mouse bridge for spacenavd (Chromium and Firefox on Linux)"
 arch=('x86_64')
-url="https://github.com/FreeSpacenav/spacenavd/issues/30"
+url="https://github.com/Pace17881/spnav-onshape-bridge"
 license=('GPL-3.0-or-later')
 depends=('libspnav' 'openssl')
 optdepends=(
@@ -18,11 +18,9 @@ optdepends=(
 # it as an unneeded runtime dependency if listed under `depends`.
 makedepends=('git' 'libx11')
 install=spnav-onshape-bridge.install
-# REPLACE with the project's real repository URL before submitting to the
-# AUR - this is a placeholder since the project has not been published yet.
 # For local testing, point this at a git+file:// URL to a local checkout
 # instead (see packaging/arch/README.md).
-source=("$pkgname::git+https://example.invalid/spnav-onshape-bridge.git#tag=v${pkgver}")
+source=("$pkgname::git+https://github.com/Pace17881/spnav-onshape-bridge.git#tag=v${pkgver}")
 sha256sums=('SKIP')
 
 build() {

@@ -89,14 +89,9 @@ makepkg -s
 sudo pacman -U spnav-onshape-bridge-*.pkg.tar.zst
 ```
 
-The `source=` line in `PKGBUILD` currently points at a placeholder URL
-(`https://example.invalid/...`) because **this project has no public
-repository yet**. Before any real use (including AUR submission), replace
-it with the actual repository URL, e.g.:
-
-```
-source=("$pkgname::git+https://github.com/<you>/spnav-onshape-bridge.git#tag=v${pkgver}")
-```
+The `source=` line in `PKGBUILD` points at
+`https://github.com/Pace17881/spnav-onshape-bridge` and fetches the tag
+matching `pkgver`, so `makepkg -s` needs that tag to already be pushed.
 
 Submitting to the AUR itself is comparatively lightweight once that's done:
 create an AUR account, add an SSH key, and `git push` the `PKGBUILD` +

@@ -5,7 +5,7 @@ Maintainer: Sebastian Polster <polsterseb@protonmail.com>
 Build-Depends: debhelper-compat (= 13), libspnav-dev, libssl-dev, libx11-dev
 Standards-Version: 4.6.2
 Rules-Requires-Root: no
-Homepage: https://github.com/FreeSpacenav/spacenavd/issues/30
+Homepage: https://github.com/Pace17881/spnav-onshape-bridge
 
 Package: spnav-onshape-bridge
 Architecture: any

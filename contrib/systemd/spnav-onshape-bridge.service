@@ -1,6 +1,6 @@
 [Unit]
 Description=Onshape 3D-mouse bridge for spacenavd
-Documentation=https://github.com/FreeSpacenav/spacenavd/issues/30
+Documentation=https://github.com/Pace17881/spnav-onshape-bridge
 After=spacenavd.service
 Wants=spacenavd.service
 
