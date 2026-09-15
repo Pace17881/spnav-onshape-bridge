@@ -63,6 +63,7 @@ struct client {
 static struct client clients[MAX_CLIENTS];
 static volatile sig_atomic_t g_running = 1;
 static float g_sensitivity = CONTROLLER_DEFAULT_SENSITIVITY;
+static int g_verbose = 0;
 
 static void on_signal(int sig)
 {
@@ -532,12 +533,17 @@ static void process_client_buffer(struct client *cl)
 					cl->msglen += payload_len;
 				}
 				if(fin && cl->msg_opcode == WS_OP_TEXT) {
-					/* capped: logging the full ~20-30KB command-tree message via
-					 * fprintf/journald on every single (re)connect measurably
-					 * blocks this single-threaded, blocking-I/O event loop */
-					fprintf(stderr, "<- from %s: %.*s%s\n", cl->peer,
-							(int)(cl->msglen > 200 ? 200 : cl->msglen), cl->msgbuf,
-							cl->msglen > 200 ? "...[truncated]" : "");
+					/* --verbose only: at normal motion rates this fires several
+					 * times a second, which is too noisy for the journal by
+					 * default. Even truncated to 200 bytes, logging the full
+					 * ~20-30KB command-tree message via fprintf/journald on
+					 * every single (re)connect measurably blocks this
+					 * single-threaded, blocking-I/O event loop. */
+					if(g_verbose) {
+						fprintf(stderr, "<- from %s: %.*s%s\n", cl->peer,
+								(int)(cl->msglen > 200 ? 200 : cl->msglen), cl->msgbuf,
+								cl->msglen > 200 ? "...[truncated]" : "");
+					}
 					if(controller_on_message(cl->ctrl, (char *)cl->msgbuf, cl->msglen) != 0) {
 						fprintf(stderr, "protocol violation from %s, closing\n", cl->peer);
 						cl->phase = PHASE_CLOSING;
@@ -624,10 +630,13 @@ int main(int argc, char **argv)
 			state_dir = argv[++i];
 		} else if(strcmp(argv[i], "--doctor") == 0) {
 			doctor_requested = 1;
+		} else if(strcmp(argv[i], "--verbose") == 0) {
+			g_verbose = 1;
 		} else if(strcmp(argv[i], "--help") == 0) {
-			printf("usage: %s [--host IP] [--port N] [--state-dir DIR] [--sensitivity FACTOR] [--doctor]\n", argv[0]);
+			printf("usage: %s [--host IP] [--port N] [--state-dir DIR] [--sensitivity FACTOR] [--verbose] [--doctor]\n", argv[0]);
 			printf("  --sensitivity: motion speed multiplier (default %.2f; 1 = original speed)\n",
 					(double)CONTROLLER_DEFAULT_SENSITIVITY);
+			printf("  --verbose: log every incoming WAMP message (truncated), not just lifecycle events\n");
 			printf("  --doctor: check spacenavd/certificate/trust-store setup and exit\n");
 			return 0;
 		} else {

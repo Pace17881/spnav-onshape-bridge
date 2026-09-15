@@ -20,11 +20,14 @@ binary = pathlib.Path(__file__).resolve().parent / "test_daemon"
 
 
 @contextlib.contextmanager
-def daemon(extra_env=None):
+def daemon(extra_env=None, extra_args=None):
     """Starts tests/test_daemon on a free port with a fresh state dir.
 
-    Yields (port, state_dir, ssl_context). Terminates the daemon and asserts
-    it exited promptly on the way out.
+    Yields (port, state_dir, ssl_context, log_file). log_file is the
+    daemon's combined stdout/stderr, seekable at any point (e.g.
+    `log_file.seek(0); log_file.read()`) to inspect what it has logged so
+    far. Terminates the daemon and asserts it exited promptly on the way
+    out.
     """
     env = dict(os.environ)
     if extra_env:
@@ -35,7 +38,8 @@ def daemon(extra_env=None):
             port = probe.getsockname()[1]
         with tempfile.TemporaryFile() as log:
             proc = subprocess.Popen([str(binary), "--host", "127.0.0.1",
-                                      "--port", str(port), "--state-dir", state],
+                                      "--port", str(port), "--state-dir", state] +
+                                     list(extra_args or []),
                                      stdout=log, stderr=log, env=env)
             try:
                 deadline = time.monotonic() + 5
@@ -50,7 +54,7 @@ def daemon(extra_env=None):
                         time.sleep(0.02)
                 ctx = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
                 ctx.load_verify_locations(state + "/ca.crt.pem")
-                yield port, state, ctx
+                yield port, state, ctx, log
             finally:
                 proc.terminate()
                 try:

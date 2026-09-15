@@ -17,7 +17,7 @@ def test_spnav_event_fans_out_to_all_subscribed_clients():
     with tempfile.TemporaryDirectory(prefix="spnav-test-fifo-") as tmp:
         fifo_path = tmp + "/events.fifo"
         os.mkfifo(fifo_path)
-        with wstest.daemon(extra_env={"SPNAV_TEST_EVENTS": fifo_path}) as (port, state, ctx):
+        with wstest.daemon(extra_env={"SPNAV_TEST_EVENTS": fifo_path}) as (port, state, ctx, log):
             a = wstest.WsClient(port, ctx)
             b = wstest.WsClient(port, ctx)
             try:
@@ -47,7 +47,7 @@ def test_max_clients_is_enforced_and_slots_are_reused():
     # this leaves the kernel's backlog empty, so the next raw connection
     # reaches accept4() cleanly and exercises the application-level
     # "too many concurrent connections" rejection deterministically.
-    with wstest.daemon() as (port, state, ctx):
+    with wstest.daemon() as (port, state, ctx, log):
         held = [wstest.WsClient(port, ctx) for _ in range(MAX_CLIENTS)]
         try:
             overflow = socket.create_connection(("127.0.0.1", port), timeout=2)
@@ -66,7 +66,7 @@ def test_max_clients_is_enforced_and_slots_are_reused():
 
 
 def test_oversized_single_frame_is_rejected_without_crashing():
-    with wstest.daemon() as (port, state, ctx):
+    with wstest.daemon() as (port, state, ctx, log):
         ws = wstest.connect(port, ctx)
         try:
             ws.sendall(wstest.UPGRADE)
@@ -100,8 +100,32 @@ def test_oversized_single_frame_is_rejected_without_crashing():
     print("oversized-frame test passed")
 
 
+def test_verbose_flag_controls_message_logging():
+    # Default: quiet. At normal motion rates the per-message log line would
+    # fire several times a second, too noisy for the journal to leave on
+    # permanently (see src/main.c) - confirm it's actually off by default,
+    # and that --verbose actually turns it on.
+    def create_mouse_and_check_log(extra_args, expect_logged):
+        with wstest.daemon(extra_args=extra_args) as (port, state, ctx, log):
+            client = wstest.WsClient(port, ctx)
+            try:
+                assert client.receive_json()[0] == 0  # WELCOME
+                client.send_json([2, "m", "3dx_rpc:create", "3dconnexion:3dmouse", "1.0"])
+                assert client.receive_json() == [3, "m", {"connexion": "mouse0"}]
+            finally:
+                client.close()
+            log.seek(0)
+            logged = b"<- from" in log.read()
+            assert logged == expect_logged, (extra_args, logged)
+
+    create_mouse_and_check_log([], expect_logged=False)
+    create_mouse_and_check_log(["--verbose"], expect_logged=True)
+    print("--verbose test passed")
+
+
 if __name__ == "__main__":
     test_spnav_event_fans_out_to_all_subscribed_clients()
     test_max_clients_is_enforced_and_slots_are_reused()
     test_oversized_single_frame_is_rejected_without_crashing()
+    test_verbose_flag_controls_message_logging()
     print("robustness tests passed")

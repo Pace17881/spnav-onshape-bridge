@@ -3,6 +3,18 @@
 All notable changes to this project are documented here.
 Format loosely follows [Keep a Changelog](https://keepachangelog.com/).
 
+## [0.1.8] - 2026-09-15
+
+### Changed
+- Gated the per-message WAMP logging line (`<- from ...`) behind a new
+  `--verbose` flag, off by default. It used to run unconditionally, several
+  times a second at normal motion rates - too noisy for the journal to
+  leave on permanently in day-to-day use, though still valuable when
+  actually debugging a protocol issue (as it was during the original
+  connection-drop investigation - see POSTMORTEM.md). Covered by a new
+  `tests/test_robustness.py` case asserting the log line is absent by
+  default and present with `--verbose`.
+
 ## [0.1.7] - 2026-09-15
 
 ### Fixed

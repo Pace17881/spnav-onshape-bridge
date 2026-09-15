@@ -26,7 +26,13 @@ def test_help():
     assert r.returncode == 0
     assert "usage:" in r.stdout
     assert "--sensitivity" in r.stdout
+    assert "--verbose" in r.stdout
     assert "--doctor" in r.stdout
+
+
+def test_verbose_flag_is_accepted():
+    r = run("--verbose", "--help")
+    assert r.returncode == 0
 
 
 def test_unknown_argument_is_rejected():
@@ -83,6 +89,7 @@ def test_doctor_runs_to_completion_and_reports_spacenavd_ok():
 
 if __name__ == "__main__":
     test_help()
+    test_verbose_flag_is_accepted()
     test_unknown_argument_is_rejected()
     test_port_validation()
     test_sensitivity_validation()

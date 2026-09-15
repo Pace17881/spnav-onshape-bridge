@@ -1,4 +1,4 @@
-.TH SPNAV-ONSHAPE-BRIDGE 1 "September 2026" "spnav-onshape-bridge 0.1.7" "User Commands"
+.TH SPNAV-ONSHAPE-BRIDGE 1 "September 2026" "spnav-onshape-bridge 0.1.8" "User Commands"
 .SH NAME
 spnav-onshape-bridge \- bridge spacenavd 3D-mouse events to Onshape's browser 3Dconnexion API
 .SH SYNOPSIS
@@ -7,6 +7,7 @@ spnav-onshape-bridge \- bridge spacenavd 3D-mouse events to Onshape's browser 3D
 [\fB\-\-port\fR \fIN\fR]
 [\fB\-\-state\-dir\fR \fIDIR\fR]
 [\fB\-\-sensitivity\fR \fIFACTOR\fR]
+[\fB\-\-verbose\fR]
 .br
 .B spnav-onshape-bridge
 \fB\-\-doctor\fR
@@ -53,6 +54,12 @@ keys. Defaults to \fB$STATE_DIRECTORY\fR when run as the shipped systemd
 \fB\-\-sensitivity\fR \fIFACTOR\fR
 Motion speed multiplier, 0.01\-10. Defaults to 0.35. A value of 1
 corresponds to the original, unscaled motion mapping.
+.TP
+\fB\-\-verbose\fR
+Log every incoming WAMP message (truncated to 200 bytes) to stderr, not
+just connection lifecycle events. Off by default: at normal motion rates
+this fires several times a second, too noisy for the journal to leave on
+permanently. Useful when debugging a protocol-level issue.
 .TP
 \fB\-\-doctor\fR
 Run a self-check of the local setup (spacenavd connectivity, certificate
