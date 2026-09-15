@@ -3,6 +3,28 @@
 All notable changes to this project are documented here.
 Format loosely follows [Keep a Changelog](https://keepachangelog.com/).
 
+## [0.1.13] - 2026-09-15
+
+### Fixed
+- **Possible root cause found for the one unexplained mid-session
+  disconnect noted in BROWSER_TEST.md.** `src/controller.c`'s RPC chain
+  (the sequence of `self:read`/`self:update` calls sent to the client for
+  every motion/button event) had no timeout: if the client ever failed to
+  answer one of them, the chain stayed stuck forever, and every later
+  motion event would just queue up behind it - silently, no error, no log
+  line - wedging the connection until the client reconnected. Found by
+  reading [KittyCAD/modeling-app#7169](https://github.com/KittyCAD/modeling-app/issues/7169),
+  where a different team implementing the same 3Dconnexion proxy-server
+  role independently reported exactly this failure mode ("It may process a
+  few events then just stop!"). Added a 10-second timeout
+  (`CHAIN_TIMEOUT`): a stuck chain is now abandoned and a fresh one started
+  for the next event, with a warning logged. Covered by a new
+  `tests/test_robustness.py` case that never answers the first RPC and
+  confirms a later motion event still gets served instead of hanging
+  forever - not yet confirmed as the actual explanation for the original
+  observation, since it was never reproduced on demand, but it's a real,
+  independently-corroborated failure mode that is now fixed either way.
+
 ## [0.1.12] - 2026-09-15
 
 ### Fixed

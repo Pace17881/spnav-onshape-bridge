@@ -1,3 +1,12 @@
+spnav-onshape-bridge (0.1.13-1) unstable; urgency=medium
+
+  * Add a 10-second timeout to the RPC chain in the controller state
+    machine: if the client never answers a self:read/self:update, the
+    connection no longer wedges forever. Possible fix for the one
+    unexplained mid-session disconnect noted in BROWSER_TEST.md.
+
+ -- Sebastian Polster <polsterseb@protonmail.com>  Tue, 15 Sep 2026 22:00:00 +0000
+
 spnav-onshape-bridge (0.1.12-1) unstable; urgency=low
 
   * No packaging or code changes; version bump only, to keep this file's

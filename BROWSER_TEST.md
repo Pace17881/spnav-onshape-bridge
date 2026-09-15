@@ -89,6 +89,19 @@ separately investigated. The previously continuous reconnect loop had
 stopped. The successful user test is therefore not proof of complete
 long-term stability.
 
+## Addendum 2026-09-15: a plausible cause for that single disconnect
+
+[KittyCAD/modeling-app#7169](https://github.com/KittyCAD/modeling-app/issues/7169)
+independently documents that this same proxy-server role can get "wedged"
+if the client ever fails to answer one of the `self:read`/`self:update`
+RPCs sent to it - "it may process a few events then just stop." This
+project's `src/controller.c` had exactly that gap: no timeout on the RPC
+chain, so a single missed client response would silently block every
+future motion/button event. Fixed in v0.1.13 with a 10-second chain
+timeout. Not confirmed as the actual explanation for the disconnect above
+(it was never reproduced on demand to test against), but it is a real,
+independently-corroborated failure mode that's now closed off either way.
+
 
 ## Firefox 155.0.1: successful user test
 

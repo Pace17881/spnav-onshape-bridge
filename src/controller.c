@@ -20,6 +20,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #include <stdlib.h>
 #include <string.h>
 #include <math.h>
+#include <time.h>
 #include "controller.h"
 #include "wamp.h"
 #include "mat4.h"
@@ -27,6 +28,14 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 #define CONTROLLER_URI "wss://127.51.68.120/3dconnexion3dcontroller/controller0"
 #define UPDATE_URI     "wss://127.51.68.120/3dconnexion#update"
+
+/* If the client never answers one of our self:read/self:update RPCs, the
+ * chain below would otherwise wait forever - reported independently by
+ * https://github.com/KittyCAD/modeling-app/issues/7169 ("It may process a
+ * few events then just stop!") as a real failure mode of this same
+ * proxy-server role, and a plausible explanation for the one unexplained
+ * mid-session disconnect noted in BROWSER_TEST.md. */
+#define CHAIN_TIMEOUT 10
 
 enum hs_state { HS_WAIT_MOUSE, HS_WAIT_CONTROLLER, HS_READY };
 enum chain_kind { CHAIN_NONE, CHAIN_MOTION, CHAIN_BUTTON };
@@ -56,6 +65,7 @@ struct controller {
 	enum chain_kind chain;
 	enum chain_step step;
 	char pending_call_id[19];
+	time_t chain_started;
 
 	struct sb_event active_ev;
 	struct sb_event pending_motion;
@@ -178,6 +188,7 @@ static void start_motion_chain(struct controller *c, const struct sb_event *ev)
 	c->active_ev = *ev;
 	c->chain = CHAIN_MOTION;
 	c->step = MSTEP_READ_EXTENTS;
+	c->chain_started = time(NULL);
 	rpc_read(c, "model.extents");
 }
 
@@ -185,6 +196,7 @@ static void start_button_chain(struct controller *c)
 {
 	c->chain = CHAIN_BUTTON;
 	c->step = BSTEP_READ_EXTENTS;
+	c->chain_started = time(NULL);
 	rpc_read(c, "model.extents");
 }
 
@@ -487,6 +499,17 @@ void controller_on_spnav_event(struct controller *c, const struct sb_event *ev)
 {
 	if(c->hs != HS_READY || !c->known_client || !c->subscribed || !c->focus) {
 		return;
+	}
+
+	if(c->chain != CHAIN_NONE && time(NULL) - c->chain_started >= CHAIN_TIMEOUT) {
+		/* The client never answered - see CHAIN_TIMEOUT's comment. Without
+		 * this, every future motion/button event would just queue up behind
+		 * a chain that can never finish, silently wedging this connection
+		 * until the client reconnects. Abandon it and start fresh instead. */
+		fprintf(stderr, "warning: RPC chain timed out waiting for a client response, resetting\n");
+		c->chain = CHAIN_NONE;
+		c->have_pending_motion = 0;
+		c->have_pending_button = 0;
 	}
 
 	if(c->chain != CHAIN_NONE) {

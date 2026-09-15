@@ -100,6 +100,41 @@ def test_oversized_single_frame_is_rejected_without_crashing():
     print("oversized-frame test passed")
 
 
+def test_stuck_rpc_chain_times_out_and_recovers():
+    # If the client never answers one of our self:read/self:update RPCs,
+    # the chain (src/controller.c) must not wedge the connection forever -
+    # see CHAIN_TIMEOUT's comment there, prompted by
+    # https://github.com/KittyCAD/modeling-app/issues/7169 independently
+    # reporting exactly this failure mode ("It may process a few events
+    # then just stop!") for the same proxy-server role. This test never
+    # answers the first self:read, waits past the timeout, and confirms a
+    # second motion event still gets served instead of queuing forever.
+    with tempfile.TemporaryDirectory(prefix="spnav-test-fifo-") as tmp:
+        fifo_path = tmp + "/events.fifo"
+        os.mkfifo(fifo_path)
+        with wstest.daemon(extra_env={"SPNAV_TEST_EVENTS": fifo_path}) as (port, state, ctx, log):
+            client = wstest.WsClient(port, ctx)
+            try:
+                client.handshake_as_onshape()
+
+                wstest.inject_event(fifo_path, x=100, y=0, z=0)
+                first = client.receive_json()
+                assert first[2][2:5] == ["self:read", "", "model.extents"], first
+                # Deliberately never respond to `first` - the chain is now stuck.
+
+                time.sleep(11)  # > CHAIN_TIMEOUT (10s, src/controller.c)
+
+                wstest.inject_event(fifo_path, x=50, y=0, z=0)
+                second = client.receive_json(timeout=5)
+                assert second[2][2:5] == ["self:read", "", "model.extents"], second
+                assert second[2][1] != first[2][1], "expected a fresh call id, chain wasn't reset"
+            finally:
+                client.close()
+            log.seek(0)
+            assert b"RPC chain timed out" in log.read()
+    print("stuck-chain timeout test passed")
+
+
 def test_verbose_flag_controls_message_logging():
     # Default: quiet. At normal motion rates the per-message log line would
     # fire several times a second, too noisy for the journal to leave on
@@ -128,4 +163,5 @@ if __name__ == "__main__":
     test_max_clients_is_enforced_and_slots_are_reused()
     test_oversized_single_frame_is_rejected_without_crashing()
     test_verbose_flag_controls_message_logging()
+    test_stuck_rpc_chain_times_out_and_recovers()
     print("robustness tests passed")
