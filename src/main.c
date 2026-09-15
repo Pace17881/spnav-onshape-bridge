@@ -7,6 +7,9 @@
 #include <math.h>
 #include <signal.h>
 #include <poll.h>
+#include <dirent.h>
+#include <fcntl.h>
+#include <sys/wait.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <netinet/tcp.h>
@@ -90,6 +93,179 @@ static char *default_state_dir(void)
 		snprintf(path, sizeof path, "/tmp/spnav-onshape-bridge");
 	}
 	return path;
+}
+
+/* ---- `--doctor`: self-diagnosis for the parts of setup that most often go
+ * wrong, so a new user isn't left guessing at raw error output. Read-only:
+ * makes no changes, only reports and suggests the fix. */
+
+static int doctor_check_spacenavd(void)
+{
+	printf("[..] spacenavd connection ...");
+	fflush(stdout);
+	if(sb_open() == 0) {
+		sb_close();
+		printf(" OK\n");
+		return 1;
+	}
+	printf(" FAILED\n");
+	printf("     -> spacenavd isn't reachable. Is it installed and running?\n");
+	printf("        (systemctl status spacenavd, or start it: systemctl start spacenavd)\n");
+	return 0;
+}
+
+/* Whether `name` can be exec'd via $PATH at all, no shell involved (avoids
+ * any quoting/injection concern) and regardless of what it then does - NSS's
+ * certutil, unlike most tools, exits nonzero even for -H/--help, so this
+ * can't just check for a zero exit status like run_quiet() below does. exit
+ * code 127 from the child is execvp() itself failing (command not found);
+ * anything else means the program was found and ran. */
+static int command_exists(const char *name)
+{
+	pid_t pid = fork();
+	if(pid < 0) {
+		return 0;
+	}
+	if(pid == 0) {
+		int devnull = open("/dev/null", O_WRONLY);
+		if(devnull >= 0) {
+			dup2(devnull, STDOUT_FILENO);
+			dup2(devnull, STDERR_FILENO);
+		}
+		char *argv[] = { (char*)name, NULL };
+		execvp(name, argv);
+		_exit(127);
+	}
+	int status;
+	if(waitpid(pid, &status, 0) != pid) {
+		return 0;
+	}
+	return !(WIFEXITED(status) && WEXITSTATUS(status) == 127);
+}
+
+static int doctor_check_certutil(void)
+{
+	printf("[..] certutil (NSS tools, needed to import the certificate) ...");
+	fflush(stdout);
+	if(command_exists("certutil")) {
+		printf(" OK\n");
+		return 1;
+	}
+	printf(" MISSING\n");
+	printf("     -> install your distro's NSS tools package:\n");
+	printf("        Arch: pacman -S nss | Debian/Ubuntu: apt install libnss3-tools | Fedora: dnf install nss-tools\n");
+	return 0;
+}
+
+static int doctor_cert_trusted_in(const char *db, const char *label)
+{
+	char sqldb[700];
+	int found;
+	int fds[2];
+
+	snprintf(sqldb, sizeof sqldb, "sql:%s", db);
+
+	if(pipe(fds) != 0) {
+		return 0;
+	}
+	pid_t pid = fork();
+	if(pid == 0) {
+		close(fds[0]);
+		dup2(fds[1], STDOUT_FILENO);
+		int devnull = open("/dev/null", O_WRONLY);
+		if(devnull >= 0) dup2(devnull, STDERR_FILENO);
+		close(fds[1]);
+		char *argv[] = { "certutil", "-L", "-d", sqldb, NULL };
+		execvp(argv[0], argv);
+		_exit(127);
+	}
+	close(fds[1]);
+
+	found = 0;
+	if(pid > 0) {
+		char buf[4096];
+		ssize_t n;
+		while((n = read(fds[0], buf, sizeof buf - 1)) > 0) {
+			buf[n] = 0;
+			if(strstr(buf, "spnav-onshape-bridge")) {
+				found = 1;
+			}
+		}
+		int status;
+		waitpid(pid, &status, 0);
+	}
+	close(fds[0]);
+
+	printf("     %s %s (%s)\n", found ? "[OK]" : "[--]", label, db);
+	return found;
+}
+
+static int doctor_check_cert(const char *state_dir)
+{
+	char crt[600];
+	const char *home = getenv("HOME");
+	int trusted_anywhere = 0;
+
+	snprintf(crt, sizeof crt, "%s/server.crt.pem", state_dir);
+	printf("[..] certificate file ...");
+	if(access(crt, R_OK) != 0) {
+		printf(" MISSING (%s)\n", crt);
+		printf("     -> run spnav-onshape-bridge once (without --doctor) to generate it\n");
+		return 0;
+	}
+	printf(" OK (%s)\n", crt);
+
+	printf("[..] certificate trusted by browsers:\n");
+	if(home && *home) {
+		char chrome_db[600];
+		snprintf(chrome_db, sizeof chrome_db, "%s/.pki/nssdb", home);
+		trusted_anywhere |= doctor_cert_trusted_in(chrome_db, "Chromium/Chrome");
+
+		char ff_root[600];
+		snprintf(ff_root, sizeof ff_root, "%s/.mozilla/firefox", home);
+		DIR *d = opendir(ff_root);
+		if(d) {
+			struct dirent *ent;
+			while((ent = readdir(d))) {
+				if(ent->d_name[0] == '.') continue;
+				char profile_db[1024], cert9[1100], label[1100];
+				snprintf(profile_db, sizeof profile_db, "%s/%s", ff_root, ent->d_name);
+				snprintf(cert9, sizeof cert9, "%s/cert9.db", profile_db);
+				if(access(cert9, F_OK) != 0) continue;
+				snprintf(label, sizeof label, "Firefox profile %s", ent->d_name);
+				trusted_anywhere |= doctor_cert_trusted_in(profile_db, label);
+			}
+			closedir(d);
+		}
+	}
+	if(!trusted_anywhere) {
+		printf("     -> none found. Run: contrib/nss-trust-install.sh\n");
+	}
+	return trusted_anywhere;
+}
+
+static int run_doctor(const char *state_dir)
+{
+	int ok = 1;
+
+	printf("spnav-onshape-bridge --doctor\n\n");
+	ok &= doctor_check_spacenavd();
+	ok &= doctor_check_certutil();
+	ok &= doctor_check_cert(state_dir);
+
+	printf("\n");
+	if(ok) {
+		printf("Everything checked out. Remaining manual steps (can't be checked from here):\n");
+	} else {
+		printf("Some checks failed - see the '->' suggestions above. Once fixed, other\n"
+				"remaining manual steps (can't be checked from here):\n");
+	}
+	printf("  - Chromium/Chrome: load browser-extension/ as an unpacked extension\n");
+	printf("    (chrome://extensions -> Developer mode -> Load unpacked)\n");
+	printf("  - Firefox: install browser-extension/onshape-3d-mouse-linux.user.js\n");
+	printf("    via a userscript manager (e.g. Tampermonkey)\n");
+	printf("  - Restart both browsers after any certificate trust change\n");
+	return ok ? 0 : 1;
 }
 
 static void close_client(struct client *cl)
@@ -396,6 +572,7 @@ int main(int argc, char **argv)
 	int port = DEFAULT_PORT;
 	char *state_dir = default_state_dir();
 	int i;
+	int doctor_requested = 0;
 
 	for(i = 1; i < argc; i++) {
 		if(strcmp(argv[i], "--host") == 0 && i + 1 < argc) {
@@ -414,15 +591,22 @@ int main(int argc, char **argv)
 			}
 		} else if(strcmp(argv[i], "--state-dir") == 0 && i + 1 < argc) {
 			state_dir = argv[++i];
+		} else if(strcmp(argv[i], "--doctor") == 0) {
+			doctor_requested = 1;
 		} else if(strcmp(argv[i], "--help") == 0) {
-			printf("usage: %s [--host IP] [--port N] [--state-dir DIR] [--sensitivity FACTOR]\n", argv[0]);
+			printf("usage: %s [--host IP] [--port N] [--state-dir DIR] [--sensitivity FACTOR] [--doctor]\n", argv[0]);
 			printf("  --sensitivity: motion speed multiplier (default %.2f; 1 = original speed)\n",
 					(double)CONTROLLER_DEFAULT_SENSITIVITY);
+			printf("  --doctor: check spacenavd/certificate/trust-store setup and exit\n");
 			return 0;
 		} else {
 			fprintf(stderr, "unknown argument: %s (try --help)\n", argv[i]);
 			return 1;
 		}
+	}
+
+	if(doctor_requested) {
+		return run_doctor(state_dir);
 	}
 
 	srand((unsigned)(time(NULL) ^ getpid()));

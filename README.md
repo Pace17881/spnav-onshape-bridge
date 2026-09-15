@@ -1,5 +1,10 @@
 # spnav-onshape-bridge
 
+<!-- This repo has no public home yet - replace <owner>/spnav-onshape-bridge
+     below once it's pushed somewhere, otherwise these badges 404. -->
+![build](https://github.com/<owner>/spnav-onshape-bridge/actions/workflows/build.yml/badge.svg)
+![packaging](https://github.com/<owner>/spnav-onshape-bridge/actions/workflows/packaging.yml/badge.svg)
+
 A small, self-contained C daemon that lets [Onshape](https://www.onshape.com/)
 (and any other web app using the same 3Dconnexion browser API) use a
 [spacenavd](https://github.com/FreeSpacenav/spacenavd)-driven 3D mouse on
@@ -61,7 +66,22 @@ Requires `libspnav` (built/installed from this project's sibling
 [libspnav](https://github.com/FreeSpacenav/libspnav) repo) and OpenSSL
 development headers.
 
+## Installing a package instead
+
+Debian/Ubuntu (`debian/`) and Arch Linux (`packaging/arch/`) packaging is
+available and validated (builds and installs cleanly in CI on every push -
+see `.github/workflows/packaging.yml`), though neither has been submitted to
+an actual distribution archive/AUR yet. See [packaging/README.md](packaging/README.md)
+for build instructions and exactly what's still missing for that. If you
+just want to try it, `dpkg-buildpackage`/`makepkg` locally is quicker than
+the manual build below and installs the same guided `--doctor` command.
+
 ## Setup
+
+The `install.sh` script automates steps 1-4 below (build, install the
+binary, generate+import the certificate, enable the systemd service) and
+prints exactly what's left to do by hand for the browser side. Run
+`spnav-onshape-bridge --doctor` at any point to check what's still missing.
 
 1. Make sure `spacenavd` is running and sees your device (`spnavcfg`, or
    check its log).
@@ -139,6 +159,16 @@ automate.
   `contrib/systemd/spnav-onshape-bridge.service`): no new privileges, no
   filesystem access outside its state directory, no address families beyond
   `AF_INET`/`AF_UNIX`, and no non-loopback IP traffic.
+
+## Contributing, security, changes
+
+- [CONTRIBUTING.md](CONTRIBUTING.md) - code style, build/test workflow, what
+  a security-relevant PR should include.
+- [SECURITY.md](SECURITY.md) - how to report a vulnerability privately.
+- [CHANGELOG.md](CHANGELOG.md) - what changed in each release.
+- [POSTMORTEM.md](POSTMORTEM.md) / [BROWSER_TEST.md](BROWSER_TEST.md) - the
+  debugging history behind the design decisions above, including the ones
+  that turned out to be dead ends.
 
 ## License
 

@@ -1,0 +1,48 @@
+# Maintainer: Sebastian Polster <polsterseb@protonmail.com>
+pkgname=spnav-onshape-bridge
+pkgver=0.1.0
+pkgrel=1
+pkgdesc="Onshape 3D-mouse bridge for spacenavd (Chromium and Firefox on Linux)"
+arch=('x86_64')
+url="https://github.com/FreeSpacenav/spacenavd/issues/30"
+license=('GPL-3.0-or-later')
+depends=('libspnav' 'openssl' 'libx11')
+optdepends=(
+	'spacenavd: the 6dof-device driver this bridge connects to (AUR)'
+	'nss: certutil, to import the certificate into browser trust stores'
+)
+makedepends=('git')
+install=spnav-onshape-bridge.install
+# REPLACE with the project's real repository URL before submitting to the
+# AUR - this is a placeholder since the project has not been published yet.
+# For local testing, point this at a git+file:// URL to a local checkout
+# instead (see packaging/arch/README.md).
+source=("$pkgname::git+https://example.invalid/spnav-onshape-bridge.git#tag=v${pkgver}")
+sha256sums=('SKIP')
+
+build() {
+	cd "$pkgname"
+	./configure --prefix=/usr
+	make
+}
+
+check() {
+	cd "$pkgname"
+	make test
+}
+
+package() {
+	cd "$pkgname"
+	make install DESTDIR="$pkgdir" PREFIX=/usr
+
+	install -Dm644 contrib/systemd/spnav-onshape-bridge.service \
+		"$pkgdir/usr/lib/systemd/user/spnav-onshape-bridge.service"
+	install -Dm755 contrib/nss-trust-install.sh \
+		"$pkgdir/usr/share/spnav-onshape-bridge/nss-trust-install.sh"
+	cp -r browser-extension "$pkgdir/usr/share/spnav-onshape-bridge/browser-extension"
+
+	install -Dm644 README.md "$pkgdir/usr/share/doc/$pkgname/README.md"
+	install -Dm644 POSTMORTEM.md "$pkgdir/usr/share/doc/$pkgname/POSTMORTEM.md"
+	install -Dm644 BROWSER_TEST.md "$pkgdir/usr/share/doc/$pkgname/BROWSER_TEST.md"
+	install -Dm644 COPYING "$pkgdir/usr/share/licenses/$pkgname/COPYING"
+}

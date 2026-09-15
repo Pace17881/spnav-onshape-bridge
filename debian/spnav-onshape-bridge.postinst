@@ -1,0 +1,26 @@
+#!/bin/sh
+set -e
+
+if [ "$1" = "configure" ]; then
+	cat <<'EOF' >&2
+
+spnav-onshape-bridge installed. A few steps can't be automated by dpkg -
+see /usr/share/doc/spnav-onshape-bridge/README.md for the full walkthrough,
+or run the guided checklist:
+
+    spnav-onshape-bridge --doctor
+
+Short version:
+  1. Make sure spacenavd is running (systemctl status spacenavd).
+  2. Run spnav-onshape-bridge once to generate its certificate, then:
+     /usr/share/spnav-onshape-bridge/nss-trust-install.sh
+  3. Load the browser extension (Chromium) or userscript (Firefox) from
+     /usr/share/spnav-onshape-bridge/browser-extension/
+  4. Enable the per-user service:
+     systemctl --user enable --now spnav-onshape-bridge
+EOF
+fi
+
+#DEBHELPER#
+
+exit 0

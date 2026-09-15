@@ -1,0 +1,24 @@
+Source: spnav-onshape-bridge
+Section: net
+Priority: optional
+Maintainer: Sebastian Polster <polsterseb@protonmail.com>
+Build-Depends: debhelper-compat (= 13), libspnav-dev, libssl-dev, libx11-dev
+Standards-Version: 4.6.2
+Rules-Requires-Root: no
+Homepage: https://github.com/FreeSpacenav/spacenavd/issues/30
+
+Package: spnav-onshape-bridge
+Architecture: any
+Depends: ${shlibs:Depends}, ${misc:Depends}, spacenavd
+Recommends: libnss3-tools
+Description: Onshape 3D-mouse bridge for spacenavd
+ Lets Onshape (and other web apps using the same 3Dconnexion browser API)
+ use a spacenavd-driven 3D mouse on Linux, in both Chromium and Firefox.
+ .
+ Bridges spacenavd's motion events to the local WAMP-over-WebSocket API
+ Onshape's client expects from the (Windows-only) proprietary 3Dconnexion
+ driver. Generates its own per-install TLS certificate; every WebSocket
+ upgrade is checked against an Origin allow-list. See
+ /usr/share/doc/spnav-onshape-bridge/README.md for the full setup, including
+ the browser extension/userscript and certificate trust steps that cannot
+ be automated by this package alone.

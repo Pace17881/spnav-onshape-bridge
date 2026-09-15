@@ -1,0 +1,80 @@
+name: packaging
+
+# Builds the actual distro packages (not just the raw binary) on every push,
+# so a packaging regression is caught immediately rather than discovered at
+# release time. Both jobs build from the commit under test, not from a
+# published tarball/AUR source - see the sed step in each job.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  debian-package:
+    runs-on: ubuntu-latest
+    container: debian:bookworm
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install build dependencies
+        run: |
+          apt-get update -qq
+          apt-get install -y -qq build-essential devscripts debhelper \
+            libspnav-dev libssl-dev libx11-dev python3
+
+      - name: Build .deb
+        run: dpkg-buildpackage -us -uc -b
+
+      - name: Show resulting package
+        run: |
+          dpkg -I ../spnav-onshape-bridge_*.deb
+          dpkg -c ../spnav-onshape-bridge_*.deb
+
+      - name: Install and smoke-test
+        run: |
+          apt-get install -y -qq ../spnav-onshape-bridge_*.deb
+          spnav-onshape-bridge --help
+          spnav-onshape-bridge --doctor || true
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: debian-package
+          path: ../spnav-onshape-bridge_*.deb
+
+  arch-package:
+    runs-on: ubuntu-latest
+    container: archlinux:base-devel
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install build dependencies
+        run: pacman -Sy --noconfirm --needed git libspnav openssl libx11
+
+      - name: Point PKGBUILD at this checkout
+        # The real PKGBUILD fetches a tagged release from the project's
+        # repository (once published); in CI we build the commit under test
+        # instead, the same way this was validated locally before the
+        # placeholder URL existed.
+        run: |
+          sed -i "s#\$pkgname::git+https://example.invalid/spnav-onshape-bridge.git#\$pkgname::git+file://${GITHUB_WORKSPACE}#" \
+            packaging/arch/PKGBUILD
+
+      - name: Build package as non-root (makepkg refuses to run as root)
+        run: |
+          useradd -m builder
+          cp -r packaging/arch /tmp/pkgbuild
+          chown -R builder:builder /tmp/pkgbuild "$GITHUB_WORKSPACE"
+          chmod -R a+rX "$GITHUB_WORKSPACE"
+          su builder -c 'cd /tmp/pkgbuild && makepkg -s --noconfirm --skippgpcheck'
+
+      - name: Install and smoke-test
+        run: |
+          pacman -U --noconfirm /tmp/pkgbuild/spnav-onshape-bridge-*.pkg.tar.zst
+          spnav-onshape-bridge --help
+          spnav-onshape-bridge --doctor || true
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: arch-package
+          path: /tmp/pkgbuild/spnav-onshape-bridge-*.pkg.tar.zst

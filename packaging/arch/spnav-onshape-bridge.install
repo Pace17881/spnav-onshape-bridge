@@ -1,0 +1,24 @@
+post_install() {
+	cat <<EOF
+
+spnav-onshape-bridge installed. A few steps can't be automated by pacman -
+see /usr/share/doc/spnav-onshape-bridge/README.md for the full walkthrough,
+or run the guided checklist:
+
+    spnav-onshape-bridge --doctor
+
+Short version:
+  1. Make sure spacenavd is running (systemctl status spacenavd).
+     If it isn't installed, spacenavd itself is AUR-only.
+  2. Run spnav-onshape-bridge once to generate its certificate, then:
+     /usr/share/spnav-onshape-bridge/nss-trust-install.sh
+  3. Load the browser extension (Chromium) or userscript (Firefox) from
+     /usr/share/spnav-onshape-bridge/browser-extension/
+  4. Enable the per-user service:
+     systemctl --user enable --now spnav-onshape-bridge
+EOF
+}
+
+post_upgrade() {
+	post_install
+}

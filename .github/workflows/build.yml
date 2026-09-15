@@ -1,0 +1,36 @@
+name: build
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libspnav-dev libssl-dev libx11-dev python3
+
+      - name: Configure
+        run: ./configure
+
+      - name: Build
+        run: make
+
+      - name: Unit tests
+        run: make test
+
+      - name: Integration tests
+        run: make test-integration
+
+      - name: --doctor smoke test
+        run: |
+          ./spnav-onshape-bridge --help
+          # spacenavd isn't running on the CI runner; --doctor should report
+          # that clearly and exit nonzero rather than crash.
+          ./spnav-onshape-bridge --doctor || true

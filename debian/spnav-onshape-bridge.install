@@ -1,0 +1,3 @@
+contrib/systemd/spnav-onshape-bridge.service usr/lib/systemd/user
+contrib/nss-trust-install.sh usr/share/spnav-onshape-bridge
+browser-extension usr/share/spnav-onshape-bridge

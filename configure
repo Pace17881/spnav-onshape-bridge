@@ -7,6 +7,7 @@ fi
 PREFIX=/usr/local
 OPT=yes
 DBG=yes
+HARDEN=yes
 VER=`git describe --tags 2>/dev/null`
 if [ -z "$VER" ]; then
 	VER=`git rev-parse --short HEAD 2>/dev/null`
@@ -33,6 +34,10 @@ for arg; do
 		DBG=yes;;
 	--disable-debug)
 		DBG=no;;
+	--enable-hardening)
+		HARDEN=yes;;
+	--disable-hardening)
+		HARDEN=no;;
 	--help)
 		echo 'usage: ./configure [options]'
 		echo 'options:'
@@ -41,6 +46,9 @@ for arg; do
 		echo '  --disable-opt: disable speed optimizations'
 		echo '  --enable-debug: include debugging symbols (default)'
 		echo '  --disable-debug: don''t include debugging symbols'
+		echo '  --enable-hardening: stack protector, fortify source, RELRO, PIE (default)'
+		echo '  --disable-hardening: disable the above (not recommended; this daemon parses'
+		echo '                       untrusted network input)'
 		echo '  --help: print this help message'
 		exit 0
 		;;
@@ -69,6 +77,15 @@ echo "srcdir = $srcdir" >> Makefile
 echo "VERSION = $VER" >> Makefile
 [ "$OPT" = yes ] && echo 'opt = -O2' >> Makefile
 [ "$DBG" = yes ] && echo 'dbg = -g' >> Makefile
+
+if [ "$HARDEN" = yes ]; then
+	harden_cflags='-fstack-protector-strong -Wformat -Wformat-security -Werror=format-security -fPIE'
+	# _FORTIFY_SOURCE needs -O1 or higher to do anything, and glibc warns if
+	# it's set without optimization
+	[ "$OPT" = yes ] && harden_cflags="$harden_cflags -D_FORTIFY_SOURCE=2"
+	echo "harden_cflags = $harden_cflags" >> Makefile
+	echo 'harden_ldflags = -Wl,-z,relro,-z,now -pie' >> Makefile
+fi
 
 if pkg-config --exists openssl 2>/dev/null; then
 	echo "ssl_cflags = `pkg-config --cflags openssl`" >> Makefile

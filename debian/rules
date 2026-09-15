@@ -1,0 +1,14 @@
+#!/usr/bin/make -f
+
+%:
+	dh $@
+
+# Our ./configure is a small hand-written script (matching spacenavd's own
+# build style), not autoconf - it doesn't understand the --build=/--host=/
+# --infodir=... flags dh_auto_configure passes by default, so it needs to be
+# called directly with just the option it supports.
+override_dh_auto_configure:
+	./configure --prefix=/usr
+
+override_dh_auto_install:
+	$(MAKE) install DESTDIR=$(CURDIR)/debian/spnav-onshape-bridge PREFIX=/usr
