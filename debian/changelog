@@ -1,3 +1,11 @@
+spnav-onshape-bridge (0.1.10-1) unstable; urgency=low
+
+  * No packaging or code changes; version bump only, to keep this file's
+    version aligned with the git tag - fixes this release were CI-only
+    (.github/workflows/packaging.yml), see CHANGELOG.md.
+
+ -- Sebastian Polster <polsterseb@protonmail.com>  Tue, 15 Sep 2026 21:00:00 +0000
+
 spnav-onshape-bridge (0.1.9-1) unstable; urgency=low
 
   * Add GPLv3 headers to every source file (matching spacenavd's

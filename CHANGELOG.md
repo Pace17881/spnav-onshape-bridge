@@ -3,6 +3,22 @@
 All notable changes to this project are documented here.
 Format loosely follows [Keep a Changelog](https://keepachangelog.com/).
 
+## [0.1.10] - 2026-09-15
+
+### Fixed
+- `.github/workflows/packaging.yml`, found by the very first real run on
+  GitHub Actions after publishing (never caught by local container testing,
+  which didn't exactly match the runner environment):
+  - `arch-package`: git (>= 2.35.2) refused to let the `builder` user clone
+    `$GITHUB_WORKSPACE` after the workflow `chown`s it to `builder`,
+    since `builder` has no gitconfig of its own yet ("detected dubious
+    ownership in repository"). Fixed with
+    `git config --system --add safe.directory "*"` before switching users.
+  - `debian-package`: `actions/upload-artifact@v4` rejects path patterns
+    containing `..`, which `path: ../spnav-onshape-bridge_*.deb` used
+    (`dpkg-buildpackage` puts its output one directory up). Fixed by moving
+    the built `.deb` into a `dist/` folder inside the workspace first.
+
 ## [0.1.9] - 2026-09-15
 
 ### Added

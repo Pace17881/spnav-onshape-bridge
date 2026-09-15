@@ -37,10 +37,14 @@ jobs:
           spnav-onshape-bridge --help
           spnav-onshape-bridge --doctor || true
 
+      - name: Move package into the workspace for upload
+        # actions/upload-artifact@v4 rejects path patterns containing ".."
+        run: mkdir -p dist && mv ../spnav-onshape-bridge_*.deb dist/
+
       - uses: actions/upload-artifact@v4
         with:
           name: debian-package
-          path: ../spnav-onshape-bridge_*.deb
+          path: dist/spnav-onshape-bridge_*.deb
 
   arch-package:
     runs-on: ubuntu-latest
@@ -65,6 +69,12 @@ jobs:
           cp -r packaging/arch /tmp/pkgbuild
           chown -R builder:builder /tmp/pkgbuild "$GITHUB_WORKSPACE"
           chmod -R a+rX "$GITHUB_WORKSPACE"
+          # git (>= 2.35.2) refuses to operate across a uid boundary unless
+          # told it's safe - builder cloning $GITHUB_WORKSPACE (owned by
+          # builder since the chown above, but builder has no gitconfig of
+          # its own yet) needs this, system-wide since it's builder's git
+          # invocation, not root's.
+          git config --system --add safe.directory "*"
           su builder -c 'cd /tmp/pkgbuild && makepkg -s --noconfirm --skippgpcheck'
 
       - name: Install and smoke-test
