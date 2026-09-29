@@ -117,19 +117,31 @@ prints exactly what's left to do by hand for the browser side. Run
 
 ## Mouse sensitivity
 
-The default motion sensitivity is now 0.35 (35% of the original bridge
-speed), applied to rotation, translation and zoom. Adjust it at startup:
+The default motion sensitivity is 0.35 (35% of the original bridge speed),
+applied to rotation, translation and zoom. Accepted values are 0.01 to 10.
+This setting belongs to the bridge and therefore applies equally in Firefox
+and Chromium. Button-triggered view resets are unaffected. The default is a
+starting point for tuning, not a calibration to FreeCAD.
+
+**From the browser (recommended):** open an Onshape document and click the
+small gear icon on the right edge (drag it anywhere if it overlaps Onshape's
+own controls - position is remembered). Dragging the slider applies the new
+value live - move the 3D mouse without closing the panel to feel the change
+immediately against the real model. The value is saved under `--state-dir`
+and becomes the new default on future runs.
+
+**At startup**, e.g. for scripting or a one-off override:
 
 ```sh
 ./spnav-onshape-bridge --sensitivity 0.2   # gentler
-./spnav-onshape-bridge --sensitivity 0.5   # faster than the new default
+./spnav-onshape-bridge --sensitivity 0.5   # faster than the default
 ./spnav-onshape-bridge --sensitivity 1     # original speed
 ```
 
-Accepted values are 0.01 to 10. This setting belongs to the bridge and
-therefore applies equally in Firefox and Chromium. Button-triggered view
-resets are unaffected. The new default is a starting point for tuning,
-not a calibration to FreeCAD.
+`--sensitivity` always wins for that run and is never overwritten by a
+previously browser-saved value, but it also doesn't overwrite that saved
+value - the next run without `--sensitivity` picks the browser-saved one
+back up.
 
 ## Known limitation: Firefox extension
 

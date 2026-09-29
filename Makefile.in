@@ -62,6 +62,7 @@ test-integration: tests/test_daemon
 	python3 tests/test_transport.py
 	python3 tests/test_cli.py
 	python3 tests/test_robustness.py
+	python3 tests/test_sensitivity.py
 
 # Rebuilds everything with AddressSanitizer + UndefinedBehaviorSanitizer and
 # runs the full test suite under them, then cleans up so a normal `make`

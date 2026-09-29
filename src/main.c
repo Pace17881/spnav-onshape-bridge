@@ -42,6 +42,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #include "origins.h"
 #include "controller.h"
 #include "spnav_bridge.h"
+#include "cJSON.h"
 
 #define DEFAULT_HOST "127.51.68.120"
 #define DEFAULT_PORT 8181
@@ -82,6 +83,7 @@ static struct client clients[MAX_CLIENTS];
 static volatile sig_atomic_t g_running = 1;
 static float g_sensitivity = CONTROLLER_DEFAULT_SENSITIVITY;
 static int g_verbose = 0;
+static char g_state_dir[512];
 
 static void on_signal(int sig)
 {
@@ -112,6 +114,57 @@ static char *default_state_dir(void)
 		snprintf(path, sizeof path, "/tmp/spnav-onshape-bridge");
 	}
 	return path;
+}
+
+/* ---- Live-adjustable sensitivity, exposed to the same-origin overlay UI via
+ * GET/POST /spnav/sensitivity (see handle_sensitivity_request()) and
+ * persisted across restarts under state_dir, so a value picked in the
+ * browser sticks without needing --sensitivity on every launch. */
+
+static void sensitivity_conf_path(char *out, size_t outsz)
+{
+	snprintf(out, outsz, "%s/sensitivity.conf", g_state_dir);
+}
+
+/* Called once at startup, only when --sensitivity wasn't given explicitly -
+ * an explicit CLI flag always wins for that run, and is never overwritten by
+ * a stale saved value. */
+static void load_persisted_sensitivity(void)
+{
+	char path[600];
+	char line[64];
+	char *end;
+	float val;
+	FILE *fp;
+
+	sensitivity_conf_path(path, sizeof path);
+	fp = fopen(path, "r");
+	if(!fp) {
+		return; /* not saved yet, keep the built-in default */
+	}
+	if(fgets(line, sizeof line, fp)) {
+		errno = 0;
+		val = strtof(line, &end);
+		if(!errno && end != line && isfinite(val) && val >= 0.01f && val <= 10.0f) {
+			g_sensitivity = val;
+		}
+	}
+	fclose(fp);
+}
+
+static void save_persisted_sensitivity(float val)
+{
+	char path[600];
+	FILE *fp;
+
+	sensitivity_conf_path(path, sizeof path);
+	fp = fopen(path, "w");
+	if(!fp) {
+		fprintf(stderr, "failed to save sensitivity to %s: %s\n", path, strerror(errno));
+		return;
+	}
+	fprintf(fp, "%g\n", (double)val);
+	fclose(fp);
 }
 
 /* ---- `--doctor`: self-diagnosis for the parts of setup that most often go
@@ -463,7 +516,53 @@ static void append_cors_header(const struct http_request *req, char *hdr, size_t
 	}
 }
 
-static void handle_http_request(struct client *cl, const struct http_request *req)
+/* GET returns the sensitivity currently in effect; POST (JSON body
+ * {"sensitivity": N}) applies a new one live to every connected client and
+ * persists it. Same-origin-only, like everything else here: the overlay UI
+ * injected into the Onshape page runs with Origin: https://cad.onshape.com,
+ * already covered by the existing allow-list. */
+static void handle_sensitivity_request(struct client *cl, const struct http_request *req,
+										const char *body, size_t body_len)
+{
+	char hdr[512] = "Content-Type: application/json\r\n";
+	char respbody[64];
+
+	if(!origin_allowed(req->origin)) {
+		send_http_response(cl, 403, "Forbidden", NULL, "origin not allowed");
+		return;
+	}
+	append_cors_header(req, hdr, sizeof hdr);
+
+	if(strcmp(req->method, "POST") == 0) {
+		cJSON *root = cJSON_ParseWithLength(body, body_len);
+		cJSON *val = root ? cJSON_GetObjectItemCaseSensitive(root, "sensitivity") : NULL;
+		if(!val || !cJSON_IsNumber(val) || !isfinite((float)val->valuedouble) ||
+				val->valuedouble < 0.01 || val->valuedouble > 10.0) {
+			cJSON_Delete(root);
+			send_http_response(cl, 400, "Bad Request", hdr,
+								"{\"error\":\"sensitivity must be a number from 0.01 to 10\"}");
+			return;
+		}
+		g_sensitivity = (float)val->valuedouble;
+		cJSON_Delete(root);
+
+		for(int i = 0; i < MAX_CLIENTS; i++) {
+			if(clients[i].used && clients[i].ctrl) {
+				controller_set_sensitivity(clients[i].ctrl, g_sensitivity);
+			}
+		}
+		save_persisted_sensitivity(g_sensitivity);
+	} else if(strcmp(req->method, "GET") != 0) {
+		send_http_response(cl, 405, "Method Not Allowed", hdr, "");
+		return;
+	}
+
+	snprintf(respbody, sizeof respbody, "{\"sensitivity\": %g}", (double)g_sensitivity);
+	send_http_response(cl, 200, "OK", hdr, respbody);
+}
+
+static void handle_http_request(struct client *cl, const struct http_request *req,
+								const char *body, size_t body_len)
 {
 	if(req->is_ws_upgrade) {
 		handle_ws_upgrade(cl, req);
@@ -475,16 +574,18 @@ static void handle_http_request(struct client *cl, const struct http_request *re
 		char hdr[512] = "";
 		append_cors_header(req, hdr, sizeof hdr);
 		strncat(hdr,
-				"Access-Control-Allow-Methods: GET, OPTIONS\r\nAccess-Control-Allow-Headers: *\r\n",
+				"Access-Control-Allow-Methods: GET, POST, OPTIONS\r\nAccess-Control-Allow-Headers: *\r\n",
 				sizeof hdr - strlen(hdr) - 1);
 		send_http_response(cl, 204, "No Content", hdr, "");
 	} else if(strcmp(req->path, "/3dconnexion/nlproxy") == 0) {
-		char body[128];
+		char body_resp[128];
 		char hdr[512] = "Content-Type: application/json\r\n";
 		append_cors_header(req, hdr, sizeof hdr);
-		snprintf(body, sizeof body, "{\"port\": %d, \"version\": \"%s\"}", DEFAULT_PORT,
+		snprintf(body_resp, sizeof body_resp, "{\"port\": %d, \"version\": \"%s\"}", DEFAULT_PORT,
 				 NLPROXY_VERSION);
-		send_http_response(cl, 200, "OK", hdr, body);
+		send_http_response(cl, 200, "OK", hdr, body_resp);
+	} else if(strcmp(req->path, "/spnav/sensitivity") == 0) {
+		handle_sensitivity_request(cl, req, body, body_len);
 	} else {
 		send_http_response(cl, 404, "Not Found", NULL, "");
 	}
@@ -501,11 +602,14 @@ static void process_client_buffer(struct client *cl)
 			int n = http_parse_request((char *)cl->inbuf, cl->inlen, &req);
 			if(n == 0)
 				return; /* need more data */
-			if(n < 0) {
+			if(n < 0 || req.content_length > 8192) {
 				cl->phase = PHASE_CLOSING;
 				return;
 			}
-			handle_http_request(cl, &req);
+			if(cl->inlen < (size_t)n + req.content_length)
+				return; /* body not fully buffered yet */
+			handle_http_request(cl, &req, (char *)cl->inbuf + n, req.content_length);
+			n += (int)req.content_length;
 			memmove(cl->inbuf, cl->inbuf + n, cl->inlen - (size_t)n);
 			cl->inlen -= (size_t)n;
 			if(cl->phase == PHASE_CLOSING)
@@ -619,6 +723,7 @@ int main(int argc, char **argv)
 	char *state_dir = default_state_dir();
 	int i;
 	int doctor_requested = 0;
+	int sensitivity_from_cli = 0;
 
 	for(i = 1; i < argc; i++) {
 		if(strcmp(argv[i], "--host") == 0 && i + 1 < argc) {
@@ -644,6 +749,7 @@ int main(int argc, char **argv)
 				fprintf(stderr, "--sensitivity must be a number from 0.01 to 10\n");
 				return 1;
 			}
+			sensitivity_from_cli = 1;
 		} else if(strcmp(argv[i], "--state-dir") == 0 && i + 1 < argc) {
 			state_dir = argv[++i];
 		} else if(strcmp(argv[i], "--doctor") == 0) {
@@ -654,6 +760,9 @@ int main(int argc, char **argv)
 			printf("usage: %s [--host IP] [--port N] [--state-dir DIR] [--sensitivity FACTOR] [--verbose] [--doctor]\n", argv[0]);
 			printf("  --sensitivity: motion speed multiplier (default %.2f; 1 = original speed)\n",
 					(double)CONTROLLER_DEFAULT_SENSITIVITY);
+			printf("    also adjustable live from the browser overlay, which saves its value under\n"
+					"    --state-dir and becomes the new default on future runs where --sensitivity\n"
+					"    isn't passed explicitly\n");
 			printf("  --verbose: log every incoming WAMP message (truncated), not just lifecycle events\n");
 			printf("  --doctor: check spacenavd/certificate/trust-store setup and exit\n");
 			return 0;
@@ -661,6 +770,11 @@ int main(int argc, char **argv)
 			fprintf(stderr, "unknown argument: %s (try --help)\n", argv[i]);
 			return 1;
 		}
+	}
+
+	snprintf(g_state_dir, sizeof g_state_dir, "%s", state_dir);
+	if(!sensitivity_from_cli) {
+		load_persisted_sensitivity();
 	}
 
 	if(doctor_requested) {

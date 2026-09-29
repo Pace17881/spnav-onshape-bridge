@@ -47,13 +47,20 @@ TCP port to listen on, 1\-65535. Defaults to 8181.
 .TP
 \fB\-\-state\-dir\fR \fIDIR\fR
 Directory used to store the generated CA and leaf TLS certificates and
-keys. Defaults to \fB$STATE_DIRECTORY\fR when run as the shipped systemd
-\-\-user service, otherwise \fB$XDG_DATA_HOME/spnav-onshape-bridge\fR (or
+keys, and the sensitivity value last set from the browser
+(\fBsensitivity.conf\fR). Defaults to \fB$STATE_DIRECTORY\fR when run as
+the shipped systemd \-\-user service, otherwise
+\fB$XDG_DATA_HOME/spnav-onshape-bridge\fR (or
 \fB~/.local/share/spnav-onshape-bridge\fR).
 .TP
 \fB\-\-sensitivity\fR \fIFACTOR\fR
 Motion speed multiplier, 0.01\-10. Defaults to 0.35. A value of 1
-corresponds to the original, unscaled motion mapping.
+corresponds to the original, unscaled motion mapping. Also adjustable live
+from the browser overlay (the gear icon on the Onshape page), which saves
+its value under \fB\-\-state\-dir\fR; that saved value becomes the new
+default on future runs where \fB\-\-sensitivity\fR isn't passed explicitly,
+but this flag always wins for the run it's passed on, and is never
+overwritten by the saved value.
 .TP
 \fB\-\-verbose\fR
 Log every incoming WAMP message (truncated to 200 bytes) to stderr, not

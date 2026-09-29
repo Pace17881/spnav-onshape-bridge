@@ -3,6 +3,24 @@
 All notable changes to this project are documented here.
 Format loosely follows [Keep a Changelog](https://keepachangelog.com/).
 
+## [Unreleased]
+
+### Added
+- **Live, in-browser sensitivity control.** A small gear icon on the
+  Onshape page opens a panel with a slider - drag it while moving the 3D
+  mouse to feel the change against the real model immediately, no daemon
+  restart needed. Backed by a new `GET`/`POST /spnav/sensitivity` endpoint
+  on the bridge itself (`src/main.c`'s `handle_sensitivity_request()`),
+  Origin-checked the same way as everything else it serves. The chosen
+  value is saved under `--state-dir` (`sensitivity.conf`) and becomes the
+  new default on future runs where `--sensitivity` isn't passed explicitly.
+  UI lives in `browser-extension/overlay.js` (Chromium) with an identical
+  vendored copy in the Firefox userscript, same duplication pattern as the
+  platform-spoof line, for the same reason (no `@require`-fetched code).
+  The gear icon defaults to the middle of the right edge and is draggable
+  (position remembered per-browser) after the initial bottom-right corner
+  turned out to overlap Onshape's own measurement/view-cube controls there.
+
 ## [0.1.13] - 2026-09-15
 
 ### Fixed

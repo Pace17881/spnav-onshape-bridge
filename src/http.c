@@ -17,6 +17,7 @@ You should have received a copy of the GNU General Public License
 along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 #include <ctype.h>
 #include "http.h"
@@ -110,6 +111,9 @@ int http_parse_request(const char *buf, size_t len, struct http_request *req)
 				if(strcasestr(value, "upgrade")) {
 					connection_upgrade = 1;
 				}
+			} else if(strcasecmp(name, "Content-Length") == 0) {
+				long cl = strtol(value, NULL, 10);
+				req->content_length = cl > 0 ? (size_t)cl : 0;
 			}
 		}
 	}

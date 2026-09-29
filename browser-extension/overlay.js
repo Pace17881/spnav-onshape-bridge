@@ -1,28 +1,3 @@
-// ==UserScript==
-// @name         Onshape 3D-Mouse on Linux (spnav-onshape-bridge)
-// @description  Vendored, version-pinned copy for Firefox (which requires
-//               Mozilla signing for permanently-installed extensions) - see
-//               ../README.md "Known limitation: Firefox extension". Chromium
-//               users should use the browser-extension/ folder instead of
-//               this userscript. Identical logic to content.js + overlay.js.
-// @match        https://cad.onshape.com/documents/*
-// @run-at       document-start
-// @noframes
-// @grant        none
-// @version      0.3.0
-// @license      MIT
-// ==/UserScript==
-
-// Top-level frame only (@noframes) - see content.js's comment on why a
-// nested iframe (e.g. one Onshape might use for export/thumbnail
-// rendering) shouldn't also see a spoofed platform.
-Object.defineProperty(Navigator.prototype, 'platform', { get: () => 'Win32' });
-console.log('[spnav-onshape-bridge] navigator.platform ->', navigator.platform);
-
-// Vendored copy of overlay.js (kept identical - see that file's header
-// comment for what this does and why). Duplicated rather than @require'd
-// from a URL, same reasoning as the platform-spoof line above: no runtime
-// fetching of code from anywhere, including our own GitHub.
 // Small in-page sensitivity control for spnav-onshape-bridge, so the value
 // can be tuned live while actually moving the 3D mouse in the open document,
 // instead of restarting the daemon with a different --sensitivity guess.
