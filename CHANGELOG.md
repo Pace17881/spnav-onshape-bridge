@@ -3,7 +3,7 @@
 All notable changes to this project are documented here.
 Format loosely follows [Keep a Changelog](https://keepachangelog.com/).
 
-## [Unreleased]
+## [0.2.0] - 2026-09-29
 
 ### Added
 - **Live, in-browser sensitivity control.** A small gear icon on the

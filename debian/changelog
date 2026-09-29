@@ -1,3 +1,14 @@
+spnav-onshape-bridge (0.2.0-1) unstable; urgency=medium
+
+  * Add live, in-browser sensitivity control: a gear icon on the Onshape
+    page opens a panel with a slider, backed by a new GET/POST
+    /spnav/sensitivity endpoint on the bridge itself. The value applies
+    live to every connected client and persists under --state-dir
+    (sensitivity.conf), picked back up on the next run unless
+    --sensitivity is passed explicitly. See CHANGELOG.md for details.
+
+ -- Sebastian Polster <polsterseb@protonmail.com>  Tue, 29 Sep 2026 20:35:00 +0000
+
 spnav-onshape-bridge (0.1.13-1) unstable; urgency=medium
 
   * Add a 10-second timeout to the RPC chain in the controller state
