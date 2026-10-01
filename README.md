@@ -56,14 +56,69 @@ spacenavd  --(libspnav, AF_UNIX)-->  spnav-onshape-bridge  --(wss://127.51.68.12
 - `src/mat4.*` - the 4x4 matrix math (rotation/translation/pivot), using Gram-Schmidt re-orthonormalization instead of SVD to avoid a linear-algebra library dependency.
 - `third_party/cJSON.*` - vendored, pinned (v1.7.18) JSON library.
 
-## Building
+## Installing
+
+**Debian/Ubuntu and Arch Linux have packages** - this is the quickest path
+and installs the same guided `--doctor` command:
+
+```sh
+# Debian/Ubuntu
+sudo apt install build-essential devscripts debhelper libspnav-dev libssl-dev libx11-dev
+dpkg-buildpackage -us -uc -b
+sudo apt install ../spnav-onshape-bridge_*.deb
+
+# Arch Linux
+cd packaging/arch && makepkg -s
+sudo pacman -U spnav-onshape-bridge-*.pkg.tar.zst
+```
+
+Both are validated by full builds+installs in CI on every push (see
+`.github/workflows/packaging.yml`), though neither has been submitted to an
+actual distribution archive/AUR yet - see [packaging/README.md](packaging/README.md)
+for exactly what's still missing for that.
+
+No package for your distro? See "Building from source" below instead -
+everything past this point applies either way.
+
+Installing either package prints the checklist below itself; it's also
+available any time via `spnav-onshape-bridge --doctor`:
+
+1. Make sure `spacenavd` is running and sees your device (`spnavcfg`, or
+   check its log).
+2. Run `spnav-onshape-bridge` once. On first run it generates a local CA and
+   a leaf certificate under `$XDG_DATA_HOME/spnav-onshape-bridge` (or
+   `~/.local/share/spnav-onshape-bridge`) and prints the CA's path.
+3. Import that certificate into NSS stores (requires your distro's
+   `certutil` tool) - packaged as `nss-trust-install.sh`, installed under
+   `/usr/share/spnav-onshape-bridge/` by either package (or
+   `contrib/nss-trust-install.sh` when building from source). This imports
+   the daemon's local CA with real CA trust and needs no further manual
+   certificate steps in either browser - verified with a real headless
+   Firefox test; see [BROWSER_TEST.md](BROWSER_TEST.md) for why an earlier
+   version of this project needed a manual per-site exception in Firefox and
+   no longer does. Restart browsers after trust changes.
+4. Enable it as a per-user systemd service so it starts with your session:
+   `systemctl --user enable --now spnav-onshape-bridge` (the unit file is
+   already in place from either package, or from "Building from source"
+   below).
+5. **Chromium/Chrome:** open `chrome://extensions`, enable "Developer mode",
+   "Load unpacked", select the `browser-extension/` folder (packaged under
+   `/usr/share/spnav-onshape-bridge/browser-extension/`, or straight from
+   this repo when building from source).
+6. **Firefox:** see "Known limitation" below - for now, install a userscript
+   manager (e.g. Tampermonkey) and add `browser-extension/onshape-3d-mouse-linux.user.js`
+   from this repo (not from Greasyfork).
+7. Open an Onshape document and move the mouse.
+
+## Building from source
+
+For distros without a package above, or to hack on the code itself.
 
 ```sh
 ./configure
 make
-make test        # matrix, controller and WebSocket regression tests
-make test-integration # TLS/HTTP tests with a simulated device connection (Python 3)
-make install      # installs to $PREFIX/bin (default /usr/local), or run from ./spnav-onshape-bridge directly
+make test             # matrix, controller and WebSocket regression tests
+make test-integration  # TLS/HTTP tests with a simulated device connection (Python 3)
 ```
 
 Requires `libspnav` (built/installed from this project's sibling
@@ -72,48 +127,16 @@ BSD-3-Clause license) and OpenSSL (Apache-2.0, 3.0 or later - `configure`
 checks for this) development headers. Neither is bundled; both are only
 dynamically linked at build time.
 
-## Installing a package instead
+`./install.sh` automates the rest - installing the binary to `~/.local/bin`,
+and steps 2-4 of the checklist above - or do it by hand:
 
-Debian/Ubuntu (`debian/`) and Arch Linux (`packaging/arch/`) packaging is
-available and validated (builds and installs cleanly in CI on every push -
-see `.github/workflows/packaging.yml`), though neither has been submitted to
-an actual distribution archive/AUR yet. See [packaging/README.md](packaging/README.md)
-for build instructions and exactly what's still missing for that. If you
-just want to try it, `dpkg-buildpackage`/`makepkg` locally is quicker than
-the manual build below and installs the same guided `--doctor` command.
+```sh
+mkdir -p ~/.local/bin && cp spnav-onshape-bridge ~/.local/bin/
+mkdir -p ~/.config/systemd/user && cp contrib/systemd/spnav-onshape-bridge.service ~/.config/systemd/user/
+systemctl --user daemon-reload
+```
 
-## Setup
-
-The `install.sh` script automates steps 1-4 below (build, install the
-binary, generate+import the certificate, enable the systemd service) and
-prints exactly what's left to do by hand for the browser side. Run
-`spnav-onshape-bridge --doctor` at any point to check what's still missing.
-
-1. Make sure `spacenavd` is running and sees your device (`spnavcfg`, or
-   check its log).
-2. Run `spnav-onshape-bridge` once by hand. On first run it generates a local
-   CA and a leaf certificate under `$XDG_DATA_HOME/spnav-onshape-bridge` (or
-   `~/.local/share/spnav-onshape-bridge`) and prints the CA's path.
-3. `contrib/nss-trust-install.sh` imports the certificate into NSS stores
-   (requires your distro's `certutil` tool). This imports the daemon's local
-   CA with real CA trust and needs no further manual certificate steps in
-   either browser - verified with a real headless Firefox test; see
-   [BROWSER_TEST.md](BROWSER_TEST.md) for why an earlier version of this
-   project needed a manual per-site exception in Firefox and no longer does.
-   Restart browsers after trust changes.
-4. Install it as a per-user systemd service so it starts with your session:
-   ```sh
-   mkdir -p ~/.local/bin && cp spnav-onshape-bridge ~/.local/bin/
-   mkdir -p ~/.config/systemd/user && cp contrib/systemd/spnav-onshape-bridge.service ~/.config/systemd/user/
-   systemctl --user daemon-reload
-   systemctl --user enable --now spnav-onshape-bridge
-   ```
-5. **Chromium/Chrome:** open `chrome://extensions`, enable "Developer mode",
-   "Load unpacked", select the `browser-extension/` folder.
-6. **Firefox:** see "Known limitation" below - for now, install a userscript
-   manager (e.g. Tampermonkey) and add `browser-extension/onshape-3d-mouse-linux.user.js`
-   from this repo (not from Greasyfork).
-7. Open an Onshape document and move the mouse.
+Then continue from step 2 of the checklist above.
 
 ## Mouse sensitivity
 
